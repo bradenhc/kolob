@@ -21,8 +21,8 @@ func (s *MemberService) members(gid model.Uuid) ([]*model.Member, error) {
 }
 
 func (s *MemberService) CreateMember(ctx context.Context, p model.CreateMemberParams) (model.Member, error) {
-	s.store.mutex.Lock()
-	defer s.store.mutex.Unlock()
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 
 	ms, err := s.members(p.GroupId)
 	if err != nil {
@@ -47,8 +47,8 @@ func (s *MemberService) CreateMember(ctx context.Context, p model.CreateMemberPa
 }
 
 func (s *MemberService) UpdateMember(ctx context.Context, p model.UpdateMemberParams) error {
-	s.store.mutex.Lock()
-	defer s.store.mutex.Unlock()
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 
 	ms, err := s.members(p.GroupId)
 	if err != nil {
@@ -71,8 +71,8 @@ func (s *MemberService) UpdateMember(ctx context.Context, p model.UpdateMemberPa
 }
 
 func (s *MemberService) RemoveMember(ctx context.Context, p model.RemoveMemberParams) error {
-	s.store.mutex.Lock()
-	defer s.store.mutex.Unlock()
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 
 	ms, err := s.members(p.GroupId)
 	if err != nil {
@@ -95,8 +95,8 @@ func (s *MemberService) RemoveMember(ctx context.Context, p model.RemoveMemberPa
 }
 
 func (s *MemberService) ListMembers(ctx context.Context, p model.ListMembersParams) ([]model.Member, error) {
-	s.store.mutex.RLock()
-	defer s.store.mutex.RUnlock()
+	s.store.lock.RLock()
+	defer s.store.lock.RUnlock()
 
 	ms, err := s.members(p.GroupId)
 	if err != nil {
@@ -105,18 +105,21 @@ func (s *MemberService) ListMembers(ctx context.Context, p model.ListMembersPara
 
 	ret := make([]model.Member, 0)
 	for _, m := range ms {
-		match, _ := regexp.MatchString(*p.NamePattern, m.Name)
-		if match {
-			ret = append(ret, *m)
+		if p.NamePattern != nil {
+			match, _ := regexp.MatchString(*p.NamePattern, m.Name)
+			if !match {
+				continue
+			}
 		}
+		ret = append(ret, *m)
 	}
 
 	return ret, nil
 }
 
 func (s *MemberService) FindMemberByUsername(ctx context.Context, p model.FindMemberByUsernameParams) (model.Member, error) {
-	s.store.mutex.RLock()
-	defer s.store.mutex.RUnlock()
+	s.store.lock.RLock()
+	defer s.store.lock.RUnlock()
 
 	ms, err := s.members(p.GroupId)
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 )
 
 type SynchronizedStore struct {
-	mutex         sync.RWMutex
+	lock          sync.RWMutex
 	groups        map[model.Uuid]*model.Group
 	members       map[model.Uuid][]*model.Member
 	conversations map[model.Uuid][]*model.Conversation

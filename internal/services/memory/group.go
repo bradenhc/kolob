@@ -13,8 +13,8 @@ type GroupService struct {
 }
 
 func (s *GroupService) CreateGroup(ctx context.Context, p model.CreateGroupParams) (model.Group, error) {
-	s.store.mutex.Lock()
-	defer s.store.mutex.Unlock()
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 
 	var g model.Group
 	for _, v := range s.store.groups {
@@ -41,8 +41,8 @@ func (s *GroupService) CreateGroup(ctx context.Context, p model.CreateGroupParam
 }
 
 func (s *GroupService) UpdateGroup(ctx context.Context, p model.UpdateGroupParams) error {
-	s.store.mutex.Lock()
-	defer s.store.mutex.Unlock()
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 
 	g := s.store.groups[p.Id]
 	if g == nil {
@@ -57,8 +57,8 @@ func (s *GroupService) UpdateGroup(ctx context.Context, p model.UpdateGroupParam
 }
 
 func (s *GroupService) RemoveGroup(ctx context.Context, p model.RemoveGroupParams) error {
-	s.store.mutex.Lock()
-	defer s.store.mutex.Unlock()
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 
 	// This has to be a cascading delete from all the internal maps. Start with messages,
 	// conversations, then members, then finally remove the group
@@ -77,8 +77,8 @@ func (s *GroupService) RemoveGroup(ctx context.Context, p model.RemoveGroupParam
 }
 
 func (s *GroupService) ListGroups(ctx context.Context, p model.ListGroupsParams) ([]model.Group, error) {
-	s.store.mutex.RLock()
-	defer s.store.mutex.RUnlock()
+	s.store.lock.RLock()
+	defer s.store.lock.RUnlock()
 
 	gs := make([]model.Group, len(s.store.groups))
 	for _, g := range s.store.groups {
@@ -95,8 +95,8 @@ func (s *GroupService) ListGroups(ctx context.Context, p model.ListGroupsParams)
 }
 
 func (s *GroupService) FindGroupById(ctx context.Context, id model.Uuid) (model.Group, error) {
-	s.store.mutex.RLock()
-	defer s.store.mutex.RUnlock()
+	s.store.lock.RLock()
+	defer s.store.lock.RUnlock()
 
 	g, ok := s.store.groups[id]
 	if !ok {
@@ -107,8 +107,8 @@ func (s *GroupService) FindGroupById(ctx context.Context, id model.Uuid) (model.
 }
 
 func (s *GroupService) FindGroupByName(ctx context.Context, name string) (model.Group, error) {
-	s.store.mutex.RLock()
-	defer s.store.mutex.RUnlock()
+	s.store.lock.RLock()
+	defer s.store.lock.RUnlock()
 
 	for _, g := range s.store.groups {
 		if g.Name == name {

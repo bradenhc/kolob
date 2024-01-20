@@ -35,7 +35,7 @@ type MessageService interface {
 	CreateMessage(ctx context.Context, p CreateMessageParams) (Message, error)
 	UpdateMessage(ctx context.Context, p UpdateMessageParams) error
 	RemoveMessage(ctx context.Context, p RemoveMessageParams) error
-	ListMessages(ctx context.Context, p ListMessagesParams)
+	ListMessages(ctx context.Context, p ListMessagesParams) ([]Message, error)
 }
 
 type CreateMessageParams struct {

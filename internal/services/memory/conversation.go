@@ -21,8 +21,8 @@ func (s *ConversationService) conversations(gid model.Uuid) ([]*model.Conversati
 }
 
 func (s *ConversationService) CreateConversation(ctx context.Context, p model.CreateConversationParams) (model.Conversation, error) {
-	s.store.mutex.Lock()
-	defer s.store.mutex.Unlock()
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 
 	cs, err := s.conversations(p.GroupId)
 	if err != nil {
@@ -48,8 +48,8 @@ func (s *ConversationService) CreateConversation(ctx context.Context, p model.Cr
 }
 
 func (s *ConversationService) UpdateConversation(ctx context.Context, p model.UpdateConversationParams) error {
-	s.store.mutex.Lock()
-	defer s.store.mutex.Unlock()
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 
 	cs, err := s.conversations(p.GroupId)
 	if err != nil {
@@ -72,8 +72,8 @@ func (s *ConversationService) UpdateConversation(ctx context.Context, p model.Up
 }
 
 func (s *ConversationService) RemoveConversation(ctx context.Context, p model.RemoveConversationParams) error {
-	s.store.mutex.Lock()
-	defer s.store.mutex.Unlock()
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 
 	cs, err := s.conversations(p.GroupId)
 	if err != nil {
@@ -97,8 +97,8 @@ func (s *ConversationService) RemoveConversation(ctx context.Context, p model.Re
 }
 
 func (s *ConversationService) ListConversations(ctx context.Context, p model.ListConversationsParams) ([]model.Conversation, error) {
-	s.store.mutex.RLock()
-	defer s.store.mutex.RUnlock()
+	s.store.lock.RLock()
+	defer s.store.lock.RUnlock()
 
 	cs, err := s.conversations(p.GroupId)
 	if err != nil {
@@ -107,18 +107,21 @@ func (s *ConversationService) ListConversations(ctx context.Context, p model.Lis
 
 	ret := make([]model.Conversation, 0)
 	for _, c := range cs {
-		match, _ := regexp.MatchString(*p.Pattern, c.Name)
-		if match {
-			ret = append(ret, *c)
+		if p.Pattern != nil {
+			match, _ := regexp.MatchString(*p.Pattern, c.Name)
+			if !match {
+				continue
+			}
 		}
+		ret = append(ret, *c)
 	}
 
 	return ret, nil
 }
 
 func (s *ConversationService) FindConversationById(ctx context.Context, p model.FindConversationByIdParams) (model.Conversation, error) {
-	s.store.mutex.RLock()
-	defer s.store.mutex.RUnlock()
+	s.store.lock.RLock()
+	defer s.store.lock.RUnlock()
 
 	cs, err := s.conversations(p.GroupId)
 	if err != nil {

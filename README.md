@@ -1,6 +1,6 @@
 # Kolob - Simple & Secure Accountless Collaboration
 
-Kolob is a simple collaboration tool designed to target an auidence that may not
+Kolob is a simple collaboration tool designed to target an audience that may not
 have email addresses or mobile phones but does have access to the internet. Once
 a verified user has created a group, other users can use the group information
 to sign in to Kolob and start posting messages to the group.
@@ -13,6 +13,16 @@ TODO
 
 TODO
 
+## Command Interface
+
+The `kolob` command is used to launch a single Kolob server.
+
+The `kolobctl` command is used to manage several kolob servers. It provides a
+clean user interfaces that lets users create new groups and monitors the Kolob
+server associated with a group. `kolobctl` uses containerization technologies to
+do most of the heavy lifting, so you should make sure Docker is installed if you
+are going to be using it.
+
 ## Data Model
 
 Kolob focuses on a minimal feature set in order to provide the highest quality
@@ -24,7 +34,11 @@ down this data model and explains the motivation behind the different elements.
 The central element in this data model is the **Group**. A group is where users
 can join together and post messages about various topics. Every group has at
 least one administrator called the Group Creator. Additional details about the
-Group Creator are provided in following section.
+Group Creator are provided in following sections.
+
+A single Kolob server can only run one group. This enables complete isolation
+of group data and also make the project easier to maintain. As such, the idea of
+a group is more conceptual than it is concrete in the program's implementation.
 
 ### Conversations
 
@@ -60,28 +74,10 @@ TODO
 ## Data Storage
 
 Kolob can be extended to support multiple backend data storage technologies. The
-default backend is a simple filesystem-based backend.
-
-A group's information is stored inside a directory. The directory structure is
-as follows:
-
-```text
-groups/
- |- group-id/
- |   |- info.json
- |   |- members.json
- |   |- conversations/
- |   |   |- conversation-id/
- |   |   |   |- info.json
- |   |   |   |- messages.start.end.json
-```
+default backend is driven by SQLite.
 
 Data is always written to disk before it is applied to the in-memory store.
 Data on disk is always encrypted.
-
-Only a single Kolob server has write access to the files stored on disk. In the
-simplest configuration you run only one Kolob server. The Kolob server that has
-write access has a dedicated Goroutine that performs file writes. 
 
 ## Security
 

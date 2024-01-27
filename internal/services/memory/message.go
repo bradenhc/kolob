@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 
 	"github.com/bradenhc/kolob/internal/model"
 )
@@ -12,26 +13,13 @@ type MessageService struct {
 	store *SynchronizedStore
 }
 
-func (s *MessageService) messages(gid, cid model.Uuid) ([]*model.Message, error) {
-	_, ok := s.store.groups[gid]
-	if !ok {
-		return nil, fmt.Errorf("group with ID %s does not exist", gid)
-	}
-	cs, ok := s.store.messages[cid]
-	if !ok {
-		return nil, fmt.Errorf("conversation with ID %s does not exist", cid)
-	}
-	return cs, nil
-}
-
 func (s *MessageService) CreateMessage(ctx context.Context, p model.CreateMessageParams) (model.Message, error) {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
+	s.store.messagesLock.Lock()
+	defer s.store.messagesLock.Unlock()
 
-	_, err := s.messages(p.GroupId, p.ConversationId)
-	if err != nil {
+	if _, ok := s.store.messages[p.ConversationId]; !ok {
 		var m model.Message
-		return m, err
+		return m, fmt.Errorf("conversation with ID %s does not exist", p.ConversationId)
 	}
 
 	m, err := model.NewMessage(p.Author, p.Content)
@@ -44,12 +32,12 @@ func (s *MessageService) CreateMessage(ctx context.Context, p model.CreateMessag
 }
 
 func (s *MessageService) UpdateMessage(ctx context.Context, p model.UpdateMessageParams) error {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
+	s.store.messagesLock.Lock()
+	defer s.store.messagesLock.Unlock()
 
-	ms, err := s.messages(p.GroupId, p.ConversationId)
-	if err != nil {
-		return err
+	ms, ok := s.store.messages[p.ConversationId]
+	if !ok {
+		return fmt.Errorf("conversation with ID %s does not exist", p.ConversationId)
 	}
 
 	for _, m := range ms {
@@ -65,24 +53,18 @@ func (s *MessageService) UpdateMessage(ctx context.Context, p model.UpdateMessag
 }
 
 func (s *MessageService) RemoveMessage(ctx context.Context, p model.RemoveMessageParams) error {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
+	s.store.messagesLock.Lock()
+	defer s.store.messagesLock.Unlock()
 
-	ms, err := s.messages(p.GroupId, p.ConversationId)
-	if err != nil {
-		return err
+	ms, ok := s.store.messages[p.ConversationId]
+	if !ok {
+		return fmt.Errorf("conversation with ID %s does not exist", p.ConversationId)
 	}
 
 	for i, m := range ms {
 		if m.Id == p.Id {
-			nms := make([]*model.Message, len(ms)-1)
-			nms = append(nms, ms[:i]...)
-			if i < len(ms)-1 {
-				nms = append(nms, ms[i+1:]...)
-			}
-			s.store.messages[p.ConversationId] = nms
+			s.store.messages[p.ConversationId] = slices.Delete(ms, i, i+1)
 			break
-
 		}
 	}
 
@@ -90,12 +72,12 @@ func (s *MessageService) RemoveMessage(ctx context.Context, p model.RemoveMessag
 }
 
 func (s *MessageService) ListMessages(ctx context.Context, p model.ListMessagesParams) ([]model.Message, error) {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
+	s.store.messagesLock.RLock()
+	defer s.store.messagesLock.RUnlock()
 
-	ms, err := s.messages(p.GroupId, p.ConversationId)
-	if err != nil {
-		return nil, err
+	ms, ok := s.store.messages[p.ConversationId]
+	if !ok {
+		return nil, fmt.Errorf("conversation with ID %s does not exist", p.ConversationId)
 	}
 
 	ret := make([]model.Message, 0)

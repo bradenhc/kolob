@@ -1,9 +1,11 @@
 package memory
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 
 	"github.com/bradenhc/kolob/internal/model"
 )
@@ -12,25 +14,11 @@ type ConversationService struct {
 	store *SynchronizedStore
 }
 
-func (s *ConversationService) conversations(gid model.Uuid) ([]*model.Conversation, error) {
-	cs, ok := s.store.conversations[gid]
-	if !ok {
-		return nil, fmt.Errorf("group with ID %s does not exist", gid)
-	}
-	return cs, nil
-}
-
 func (s *ConversationService) CreateConversation(ctx context.Context, p model.CreateConversationParams) (model.Conversation, error) {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
+	s.store.conversationsLock.Lock()
+	defer s.store.conversationsLock.Unlock()
 
-	cs, err := s.conversations(p.GroupId)
-	if err != nil {
-		var c model.Conversation
-		return c, err
-	}
-
-	for _, c := range cs {
+	for _, c := range s.store.conversations {
 		if c.Name == p.Name {
 			var c model.Conversation
 			return c, fmt.Errorf("conversation with name '%s' already exists", p.Name)
@@ -43,70 +31,45 @@ func (s *ConversationService) CreateConversation(ctx context.Context, p model.Cr
 		return c, err
 	}
 
-	s.store.conversations[p.GroupId] = append(s.store.conversations[p.GroupId], &c)
+	s.store.conversations[c.Id] = &c
 	return c, nil
 }
 
 func (s *ConversationService) UpdateConversation(ctx context.Context, p model.UpdateConversationParams) error {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
+	s.store.conversationsLock.Lock()
+	defer s.store.conversationsLock.Unlock()
 
-	cs, err := s.conversations(p.GroupId)
-	if err != nil {
-		return err
+	c, ok := s.store.conversations[p.Id]
+	if !ok {
+		return fmt.Errorf("conversation with ID %s does not exist", p.Id)
 	}
 
-	for _, c := range cs {
-		if c.Id == p.Id {
-			if p.Name != nil {
-				c.Name = *p.Name
-			}
-			if p.Moderator != nil {
-				c.Moderator = *p.Moderator
-			}
-			return nil
-		}
+	if p.Name != nil {
+		c.Name = *p.Name
 	}
-
-	return fmt.Errorf("conversation with ID %s does not exist", p.Id)
-}
-
-func (s *ConversationService) RemoveConversation(ctx context.Context, p model.RemoveConversationParams) error {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
-
-	cs, err := s.conversations(p.GroupId)
-	if err != nil {
-		return err
-	}
-
-	for i, c := range cs {
-		if c.Id == p.Id {
-			ncs := make([]*model.Conversation, len(cs)-1)
-			ncs = append(ncs, cs[:i]...)
-			if i < len(cs)-1 {
-				ncs = append(ncs, cs[i+1:]...)
-			}
-			s.store.conversations[p.GroupId] = ncs
-			break
-		}
+	if p.Moderator != nil {
+		c.Moderator = *p.Moderator
 	}
 
 	return nil
+}
 
+func (s *ConversationService) RemoveConversation(ctx context.Context, p model.RemoveConversationParams) error {
+	s.store.conversationsLock.Lock()
+	defer s.store.conversationsLock.Unlock()
+
+	delete(s.store.messages, p.Id)
+	delete(s.store.conversations, p.Id)
+
+	return nil
 }
 
 func (s *ConversationService) ListConversations(ctx context.Context, p model.ListConversationsParams) ([]model.Conversation, error) {
-	s.store.lock.RLock()
-	defer s.store.lock.RUnlock()
-
-	cs, err := s.conversations(p.GroupId)
-	if err != nil {
-		return nil, err
-	}
+	s.store.conversationsLock.RLock()
+	defer s.store.conversationsLock.RUnlock()
 
 	ret := make([]model.Conversation, 0)
-	for _, c := range cs {
+	for _, c := range s.store.conversations {
 		if p.Pattern != nil {
 			match, _ := regexp.MatchString(*p.Pattern, c.Name)
 			if !match {
@@ -116,25 +79,22 @@ func (s *ConversationService) ListConversations(ctx context.Context, p model.Lis
 		ret = append(ret, *c)
 	}
 
+	slices.SortFunc(ret, func(a, b model.Conversation) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+
 	return ret, nil
 }
 
 func (s *ConversationService) FindConversationById(ctx context.Context, p model.FindConversationByIdParams) (model.Conversation, error) {
-	s.store.lock.RLock()
-	defer s.store.lock.RUnlock()
+	s.store.conversationsLock.RLock()
+	defer s.store.conversationsLock.RUnlock()
 
-	cs, err := s.conversations(p.GroupId)
-	if err != nil {
+	c, ok := s.store.conversations[p.Id]
+	if !ok {
 		var c model.Conversation
-		return c, err
+		return c, fmt.Errorf("conversation with ID %s does not exist", p.Id)
 	}
 
-	for _, c := range cs {
-		if c.Id == p.Id {
-			return *c, nil
-		}
-	}
-
-	var c model.Conversation
-	return c, fmt.Errorf("conversation with ID %s does not exist", p.Id)
+	return *c, nil
 }

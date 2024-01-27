@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 
 	"github.com/bradenhc/kolob/internal/model"
 )
@@ -12,25 +13,11 @@ type MemberService struct {
 	store *SynchronizedStore
 }
 
-func (s *MemberService) members(gid model.Uuid) ([]*model.Member, error) {
-	ms := s.store.members[gid]
-	if ms == nil {
-		return nil, fmt.Errorf("group with ID %s does not exist", gid)
-	}
-	return ms, nil
-}
-
 func (s *MemberService) CreateMember(ctx context.Context, p model.CreateMemberParams) (model.Member, error) {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
+	s.store.membersLock.Lock()
+	defer s.store.membersLock.Unlock()
 
-	ms, err := s.members(p.GroupId)
-	if err != nil {
-		var m model.Member
-		return m, err
-	}
-
-	for _, m := range ms {
+	for _, m := range s.store.members {
 		if m.Username == p.Username {
 			var m model.Member
 			return m, fmt.Errorf("member with username %s already exists", p.Username)
@@ -42,20 +29,15 @@ func (s *MemberService) CreateMember(ctx context.Context, p model.CreateMemberPa
 		return m, err
 	}
 
-	s.store.members[p.GroupId] = append(s.store.members[p.GroupId], &m)
+	s.store.members = append(s.store.members, &m)
 	return m, nil
 }
 
 func (s *MemberService) UpdateMember(ctx context.Context, p model.UpdateMemberParams) error {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
+	s.store.membersLock.Lock()
+	defer s.store.membersLock.Unlock()
 
-	ms, err := s.members(p.GroupId)
-	if err != nil {
-		return err
-	}
-
-	for _, m := range ms {
+	for _, m := range s.store.members {
 		if m.Id == p.Id {
 			if p.Username != nil {
 				m.Username = *p.Username
@@ -71,22 +53,12 @@ func (s *MemberService) UpdateMember(ctx context.Context, p model.UpdateMemberPa
 }
 
 func (s *MemberService) RemoveMember(ctx context.Context, p model.RemoveMemberParams) error {
-	s.store.lock.Lock()
-	defer s.store.lock.Unlock()
+	s.store.membersLock.Lock()
+	defer s.store.membersLock.Unlock()
 
-	ms, err := s.members(p.GroupId)
-	if err != nil {
-		return err
-	}
-
-	for i, m := range ms {
+	for i, m := range s.store.members {
 		if m.Id == p.Id {
-			nms := make([]*model.Member, len(ms)-1)
-			nms = append(nms, ms[:i]...)
-			if i < len(ms)-1 {
-				nms = append(nms, ms[i+1:]...)
-			}
-			s.store.members[p.GroupId] = nms
+			s.store.members = slices.Delete(s.store.members, i, i+1)
 			break
 		}
 	}
@@ -95,16 +67,11 @@ func (s *MemberService) RemoveMember(ctx context.Context, p model.RemoveMemberPa
 }
 
 func (s *MemberService) ListMembers(ctx context.Context, p model.ListMembersParams) ([]model.Member, error) {
-	s.store.lock.RLock()
-	defer s.store.lock.RUnlock()
-
-	ms, err := s.members(p.GroupId)
-	if err != nil {
-		return nil, err
-	}
+	s.store.membersLock.RLock()
+	defer s.store.membersLock.RUnlock()
 
 	ret := make([]model.Member, 0)
-	for _, m := range ms {
+	for _, m := range s.store.members {
 		if p.NamePattern != nil {
 			match, _ := regexp.MatchString(*p.NamePattern, m.Name)
 			if !match {
@@ -118,16 +85,10 @@ func (s *MemberService) ListMembers(ctx context.Context, p model.ListMembersPara
 }
 
 func (s *MemberService) FindMemberByUsername(ctx context.Context, p model.FindMemberByUsernameParams) (model.Member, error) {
-	s.store.lock.RLock()
-	defer s.store.lock.RUnlock()
+	s.store.membersLock.RLock()
+	defer s.store.membersLock.RUnlock()
 
-	ms, err := s.members(p.GroupId)
-	if err != nil {
-		var m model.Member
-		return m, err
-	}
-
-	for _, m := range ms {
+	for _, m := range s.store.members {
 		if m.Username == p.Username {
 			return *m, nil
 		}

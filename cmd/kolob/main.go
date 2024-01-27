@@ -1,7 +1,18 @@
 package main
 
-import "fmt"
+import (
+	"log/slog"
+	"os"
+
+	"github.com/bradenhc/kolob/internal"
+)
 
 func main() {
-	fmt.Println("Hello, world!")
+	config, err := internal.LoadServerConfig()
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
+
+	slog.Info("Successfully loaded configuration", "port", config.Port, "data", config.DatabaseFile)
 }

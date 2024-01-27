@@ -40,29 +40,24 @@ type ConversationService interface {
 }
 
 type CreateConversationParams struct {
-	GroupId   Uuid   `json:"group"`
 	Name      string `json:"name"`
 	Moderator Uuid   `json:"moderator"`
 }
 
 type UpdateConversationParams struct {
-	GroupId   Uuid    `json:"group"`
 	Id        Uuid    `json:"id"`
 	Name      *string `json:"name"`
 	Moderator *Uuid   `json:"moderator"`
 }
 
 type RemoveConversationParams struct {
-	GroupId Uuid `json:"group"`
-	Id      Uuid `json:"id"`
+	Id Uuid `json:"id"`
 }
 
 type ListConversationsParams struct {
-	GroupId Uuid    `json:"group"`
 	Pattern *string `json:"pattern"`
 }
 
 type FindConversationByIdParams struct {
-	GroupId Uuid `json:"group"`
-	Id      Uuid `json:"id"`
+	Id Uuid `json:"id"`
 }

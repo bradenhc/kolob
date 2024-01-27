@@ -39,27 +39,23 @@ type MessageService interface {
 }
 
 type CreateMessageParams struct {
-	GroupId        Uuid   `json:"group"`
 	ConversationId Uuid   `json:"conversation"`
 	Author         Uuid   `json:"author"`
 	Content        string `json:"content"`
 }
 
 type UpdateMessageParams struct {
-	GroupId        Uuid    `json:"group"`
 	ConversationId Uuid    `json:"conversation"`
 	Id             Uuid    `json:"id"`
 	Content        *string `json:"content"`
 }
 
 type RemoveMessageParams struct {
-	GroupId        Uuid `json:"group"`
 	ConversationId Uuid `json:"conversation"`
 	Id             Uuid `json:"id"`
 }
 
 type ListMessagesParams struct {
-	GroupId        Uuid    `json:"group"`
 	ConversationId Uuid    `json:"conversation"`
 	Pattern        *string `json:"pattern"`
 }

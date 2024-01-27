@@ -7,18 +7,18 @@ import (
 )
 
 type SynchronizedStore struct {
-	lock          sync.RWMutex
-	groups        map[model.Uuid]*model.Group
-	members       map[model.Uuid][]*model.Member
-	conversations map[model.Uuid][]*model.Conversation
-	messages      map[model.Uuid][]*model.Message
+	members           []*model.Member
+	membersLock       sync.RWMutex
+	conversations     map[model.Uuid]*model.Conversation
+	conversationsLock sync.RWMutex
+	messages          map[model.Uuid][]*model.Message
+	messagesLock      sync.RWMutex
 }
 
 func NewSynchrnoizedStore() *SynchronizedStore {
 	return &SynchronizedStore{
-		groups:        make(map[model.Uuid]*model.Group),
-		members:       make(map[model.Uuid][]*model.Member),
-		conversations: make(map[model.Uuid][]*model.Conversation),
+		members:       make([]*model.Member, 0),
+		conversations: make(map[model.Uuid]*model.Conversation),
 		messages:      make(map[model.Uuid][]*model.Message),
 	}
 }

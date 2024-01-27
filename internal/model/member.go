@@ -40,29 +40,24 @@ type MemberService interface {
 }
 
 type CreateMemberParams struct {
-	GroupId  Uuid   `json:"group"`
 	Username string `json:"username"`
 	Name     string `json:"name"`
 }
 
 type UpdateMemberParams struct {
-	GroupId  Uuid    `json:"group"`
 	Id       Uuid    `json:"id"`
 	Username *string `json:"username"`
 	Name     *string `json:"name"`
 }
 
 type RemoveMemberParams struct {
-	GroupId Uuid `json:"group"`
-	Id      Uuid `json:"id"`
+	Id Uuid `json:"id"`
 }
 
 type ListMembersParams struct {
-	GroupId     Uuid    `json:"group"`
 	NamePattern *string `json:"pattern"`
 }
 
 type FindMemberByUsernameParams struct {
-	GroupId  Uuid   `json:"group"`
 	Username string `json:"username"`
 }

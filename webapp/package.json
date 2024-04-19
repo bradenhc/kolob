@@ -1,0 +1,32 @@
+{
+  "name": "kolob-webui",
+  "version": "0.1.0",
+  "description": "The web app client for the Kolob collaboration server",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/build.js --watch --serve",
+    "build": "node scripts/build.js --release",
+    "clean": "rm -rf dist/",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --write src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bradenhc/kolob.git"
+  },
+  "author": "Braden Hitchcock <braden@hitchcock.codes>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bradenhc/kolob/issues"
+  },
+  "homepage": "https://github.com/bradenhc/kolob#readme",
+  "dependencies": {
+    "@lit/context": "^1.1.0",
+    "lit": "^3.1.2"
+  },
+  "devDependencies": {
+    "commander": "^11.1.0",
+    "esbuild": "^0.20.0",
+    "prettier": "^3.2.4"
+  }
+}

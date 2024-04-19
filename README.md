@@ -31,7 +31,6 @@ down this data model and explains the motivation behind the different elements.
 
 ```mermaid
 ---
-title: Kolob Data Model
 config:
     er:
         layoutDirection: LR

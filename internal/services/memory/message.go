@@ -16,7 +16,9 @@ type MessageService struct {
 	store *SynchronizedStore
 }
 
-func (s *MessageService) CreateMessage(ctx context.Context, p model.CreateMessageParams) (model.Message, error) {
+func (s *MessageService) CreateMessage(
+	ctx context.Context, p model.CreateMessageParams,
+) (model.Message, error) {
 	s.store.messagesLock.Lock()
 	defer s.store.messagesLock.Unlock()
 
@@ -74,7 +76,9 @@ func (s *MessageService) RemoveMessage(ctx context.Context, p model.RemoveMessag
 	return nil
 }
 
-func (s *MessageService) ListMessages(ctx context.Context, p model.ListMessagesParams) ([]model.Message, error) {
+func (s *MessageService) ListMessages(
+	ctx context.Context, p model.ListMessagesParams,
+) ([]model.Message, error) {
 	s.store.messagesLock.RLock()
 	defer s.store.messagesLock.RUnlock()
 

@@ -16,7 +16,9 @@ type MemberService struct {
 	store *SynchronizedStore
 }
 
-func (s *MemberService) CreateMember(ctx context.Context, p model.CreateMemberParams) (model.Member, error) {
+func (s *MemberService) CreateMember(
+	ctx context.Context, p model.CreateMemberParams,
+) (model.Member, error) {
 	s.store.membersLock.Lock()
 	defer s.store.membersLock.Unlock()
 
@@ -69,7 +71,9 @@ func (s *MemberService) RemoveMember(ctx context.Context, p model.RemoveMemberPa
 	return nil
 }
 
-func (s *MemberService) ListMembers(ctx context.Context, p model.ListMembersParams) ([]model.Member, error) {
+func (s *MemberService) ListMembers(
+	ctx context.Context, p model.ListMembersParams,
+) ([]model.Member, error) {
 	s.store.membersLock.RLock()
 	defer s.store.membersLock.RUnlock()
 
@@ -87,7 +91,9 @@ func (s *MemberService) ListMembers(ctx context.Context, p model.ListMembersPara
 	return ret, nil
 }
 
-func (s *MemberService) FindMemberByUsername(ctx context.Context, p model.FindMemberByUsernameParams) (model.Member, error) {
+func (s *MemberService) FindMemberByUsername(
+	ctx context.Context, p model.FindMemberByUsernameParams,
+) (model.Member, error) {
 	s.store.membersLock.RLock()
 	defer s.store.membersLock.RUnlock()
 

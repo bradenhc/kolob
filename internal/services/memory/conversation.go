@@ -17,7 +17,9 @@ type ConversationService struct {
 	store *SynchronizedStore
 }
 
-func (s *ConversationService) CreateConversation(ctx context.Context, p model.CreateConversationParams) (model.Conversation, error) {
+func (s *ConversationService) CreateConversation(
+	ctx context.Context, p model.CreateConversationParams,
+) (model.Conversation, error) {
 	s.store.conversationsLock.Lock()
 	defer s.store.conversationsLock.Unlock()
 
@@ -38,7 +40,9 @@ func (s *ConversationService) CreateConversation(ctx context.Context, p model.Cr
 	return c, nil
 }
 
-func (s *ConversationService) UpdateConversation(ctx context.Context, p model.UpdateConversationParams) error {
+func (s *ConversationService) UpdateConversation(
+	ctx context.Context, p model.UpdateConversationParams,
+) error {
 	s.store.conversationsLock.Lock()
 	defer s.store.conversationsLock.Unlock()
 
@@ -57,7 +61,9 @@ func (s *ConversationService) UpdateConversation(ctx context.Context, p model.Up
 	return nil
 }
 
-func (s *ConversationService) RemoveConversation(ctx context.Context, p model.RemoveConversationParams) error {
+func (s *ConversationService) RemoveConversation(
+	ctx context.Context, p model.RemoveConversationParams,
+) error {
 	s.store.conversationsLock.Lock()
 	defer s.store.conversationsLock.Unlock()
 
@@ -67,7 +73,9 @@ func (s *ConversationService) RemoveConversation(ctx context.Context, p model.Re
 	return nil
 }
 
-func (s *ConversationService) ListConversations(ctx context.Context, p model.ListConversationsParams) ([]model.Conversation, error) {
+func (s *ConversationService) ListConversations(
+	ctx context.Context, p model.ListConversationsParams,
+) ([]model.Conversation, error) {
 	s.store.conversationsLock.RLock()
 	defer s.store.conversationsLock.RUnlock()
 
@@ -89,7 +97,9 @@ func (s *ConversationService) ListConversations(ctx context.Context, p model.Lis
 	return ret, nil
 }
 
-func (s *ConversationService) FindConversationById(ctx context.Context, p model.FindConversationByIdParams) (model.Conversation, error) {
+func (s *ConversationService) FindConversationById(
+	ctx context.Context, p model.FindConversationByIdParams,
+) (model.Conversation, error) {
 	s.store.conversationsLock.RLock()
 	defer s.store.conversationsLock.RUnlock()
 

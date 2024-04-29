@@ -7,13 +7,14 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/bradenhc/kolob/internal/crypto"
 )
 
 type Member struct {
 	Id        Uuid      `json:"id"`
 	Username  string    `json:"username"`
 	Name      string    `json:"name"`
-	IsOwner   bool      `json:"isOwner"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
@@ -36,6 +37,7 @@ func NewMember(username, name string) (Member, error) {
 
 type MemberService interface {
 	CreateMember(ctx context.Context, p CreateMemberParams) (Member, error)
+	AuthenticateMember(ctx context.Context, p AuthenticateMemberParams) error
 	UpdateMember(ctx context.Context, p UpdateMemberParams) error
 	RemoveMember(ctx context.Context, p RemoveMemberParams) error
 	ListMembers(ctx context.Context, p ListMembersParams) ([]Member, error)
@@ -43,14 +45,23 @@ type MemberService interface {
 }
 
 type CreateMemberParams struct {
-	Username string `json:"username"`
-	Name     string `json:"name"`
+	Username string          `json:"username"`
+	Name     string          `json:"name"`
+	Password crypto.Password `json:"pass"`
+	Key      crypto.Key      `json:"-"`
+}
+
+type AuthenticateMemberParams struct {
+	Username string          `json:"username"`
+	Password crypto.Password `json:"password"`
+	Key      crypto.Key      `json:"-"`
 }
 
 type UpdateMemberParams struct {
-	Id       Uuid    `json:"id"`
-	Username *string `json:"username"`
-	Name     *string `json:"name"`
+	Id       Uuid       `json:"id"`
+	Username *string    `json:"username"`
+	Name     *string    `json:"name"`
+	Key      crypto.Key `json:"-"`
 }
 
 type RemoveMemberParams struct {
@@ -58,9 +69,11 @@ type RemoveMemberParams struct {
 }
 
 type ListMembersParams struct {
-	NamePattern *string `json:"pattern"`
+	NamePattern *string    `json:"pattern"`
+	Key         crypto.Key `json:"-"`
 }
 
 type FindMemberByUsernameParams struct {
-	Username string `json:"username"`
+	Username string     `json:"username"`
+	Key      crypto.Key `json:"-"`
 }

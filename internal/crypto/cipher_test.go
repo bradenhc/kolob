@@ -4,6 +4,7 @@
 package crypto_test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"strings"
@@ -117,9 +118,24 @@ func TestNewKey(t *testing.T) {
 		t.Errorf("Test setup failed to create password: %v", err)
 	}
 
-	key := crypto.NewKey(pass, salt)
+	key := crypto.NewDerivedKey(pass, salt)
 	if len(key) != crypto.KeyLength {
 		t.Errorf("len(key) == %v, expected %v", len(key), crypto.KeyLength)
 	}
 	fmt.Printf("Key: %v\n", key)
+}
+
+func TestRandomKey(t *testing.T) {
+	key1, err := crypto.NewRandomKey()
+	if err != nil {
+		t.Fatalf("failed to generate key1: %v", err)
+	}
+	key2, err := crypto.NewRandomKey()
+	if err != nil {
+		t.Fatalf("failed to generate key2: %v", err)
+	}
+
+	if bytes.Equal(key1, key2) {
+		t.Errorf("key1 == key2, but they should be different")
+	}
 }

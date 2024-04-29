@@ -1,8 +1,6 @@
 // ---------------------------------------------------------------------------------------------- //
 // -- Copyright (c) 2024 Braden Hitchcock - MIT License (https://opensource.org/licenses/MIT)  -- //
 // ---------------------------------------------------------------------------------------------- //
-
-// crypto defines
 package crypto
 
 import (
@@ -16,6 +14,7 @@ import (
 	"strings"
 	"unicode"
 
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -32,6 +31,13 @@ const (
 	// MinPasswordLength is the minimum number of characters that must be contained in a
 	// user-provided password.
 	MinPasswordLength = 16
+
+	// MaxPasswordLength is the maximum number of bytes a password can contain. This restriction is
+	// imposed by the Bcrypt algorithm used to hash the password.
+	MaxPasswordLength = 72
+
+	// HashCost is the cost used by the Bcrypt algorithm when hashing a password.
+	HashCost = 14
 )
 
 // Password is a user-provided string that has been validated and meets all criteria for a password.
@@ -78,6 +84,9 @@ func NewPassword(val string) (Password, error) {
 	if count < MinPasswordLength {
 		fails = append(fails, fmt.Sprintf("at least %v characters", MinPasswordLength))
 	}
+	if count > MaxPasswordLength {
+		fails = append(fails, fmt.Sprintf("no more than %v characters", MaxPasswordLength))
+	}
 	if !hasUpper {
 		fails = append(fails, "one uppercase letter")
 	}
@@ -96,6 +105,24 @@ func NewPassword(val string) (Password, error) {
 	}
 
 	return Password(val), nil
+}
+
+// HashPassword produces a string hash of the provided password using the Bcrypt algorithm.
+//
+// See https://www.usenix.org/legacy/event/usenix99/provos/provos.pdf for algorithm specifics.
+func HashPassword(password Password) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), HashCost)
+	return string(bytes), err
+}
+
+// HashPassword compares a plain-text password against a string hash of a password hashed using the
+// Bcrypt algorithm. If using Bcrypt to hash the provided password would produce a string equal to
+// the provided hash, then the function returns true. Otherwise the function returns false.
+//
+// See https://www.usenix.org/legacy/event/usenix99/provos/provos.pdf for algorithm specifics.
+func CheckPasswordHash(password Password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
 
 // NewSalt creates a new slice containing saltlen bytes. The resulting salt is used when generating
@@ -121,10 +148,22 @@ func LoadSalt(val []byte) (Salt, error) {
 	return val, nil
 }
 
-// NewKey uses the PBKDF2 key derivation algorithm to create a 256-bit key that can be used by the
-// AES algorithm for encrypting and decrypting data.
-func NewKey(pass Password, salt Salt) Key {
+// NewDerivedKey uses the PBKDF2 key derivation algorithm to create a 256-bit key that can be used
+// by the AES algorithm for encrypting and decrypting data.
+func NewDerivedKey(pass Password, salt Salt) Key {
 	return pbkdf2.Key([]byte(pass), salt, Iterations, KeyLength, sha256.New)
+}
+
+// NewRandomKey uses a cryptographically strong random generator to create a 256-bit key that can be
+// used by the AES algorithm for encrypting and decrypting data.
+func NewRandomKey() (Key, error) {
+	key := make([]byte, KeyLength)
+	_, err := rand.Read(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create random key: %v", err)
+	}
+
+	return key, nil
 }
 
 // Encrypt uses AES-256 to encrypt the provided plaintext and produce a newly allocated byte slice

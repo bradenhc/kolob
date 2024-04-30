@@ -29,11 +29,16 @@ func (s *MemberService) CreateMember(
 		return m, fmt.Errorf("failed to create new member: %v", err)
 	}
 
-	hash, err := crypto.HashPassword(p.Password)
+	uhash := crypto.HashData([]byte(p.Username))
+
+	phash, err := crypto.HashPassword(p.Password)
 	if err != nil {
 		var m model.Member
 		return m, fmt.Errorf("failed to hash member password: %v", err)
 	}
+
+	created := m.CreatedAt.Format(time.RFC3339)
+	updated := m.UpdatedAt.Format(time.RFC3339)
 
 	a := crypto.NewAgent[model.Member](p.Key)
 	data, err := a.Encrypt(m)
@@ -44,8 +49,8 @@ func (s *MemberService) CreateMember(
 
 	_, err = s.db.ExecContext(
 		ctx,
-		"INSERT INTO member VALUES (?, ?, ?, ?, ?)",
-		m.Id, m.CreatedAt.Format(time.RFC3339), m.UpdatedAt.Format(time.RFC3339), hash, data,
+		"INSERT INTO member VALUES (?, ?, ?, ?, ?, ?)",
+		m.Id, created, updated, uhash, phash, data,
 	)
 	if err != nil {
 		var m model.Member

@@ -49,6 +49,12 @@ type Salt []byte
 // Key is the slice of keylen bytes used to encrypt data with AES-256.
 type Key []byte
 
+// PassHash is a hash of a password performed by Bcrypt represented as a slice of bytes.
+type PassHash []byte
+
+// DataHash is a hash of arbitrary data using SHA-256 represented as a 32-byte slice of bytes
+type DataHash [32]byte
+
 // NewPassword verifies the provided string value meets the criteria for a password and then wraps
 // it in the Password type to indicate the string has been validated. If the provided string
 // does not meet the password criteria for Kolob, then the function will return an error explaining
@@ -107,22 +113,34 @@ func NewPassword(val string) (Password, error) {
 	return Password(val), nil
 }
 
-// HashPassword produces a string hash of the provided password using the Bcrypt algorithm.
+// HashPassword produces a byte hash of the provided password using the Bcrypt algorithm.
 //
 // See https://www.usenix.org/legacy/event/usenix99/provos/provos.pdf for algorithm specifics.
-func HashPassword(password Password) (string, error) {
+func HashPassword(password Password) (PassHash, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), HashCost)
-	return string(bytes), err
+	return bytes, err
 }
 
-// HashPassword compares a plain-text password against a string hash of a password hashed using the
+// HashPassword compares a plain-text password against a byte hash of a password hashed using the
 // Bcrypt algorithm. If using Bcrypt to hash the provided password would produce a string equal to
 // the provided hash, then the function returns true. Otherwise the function returns false.
 //
 // See https://www.usenix.org/legacy/event/usenix99/provos/provos.pdf for algorithm specifics.
-func CheckPasswordHash(password Password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+func CheckPasswordHash(password Password, hash PassHash) bool {
+	err := bcrypt.CompareHashAndPassword(hash, []byte(password))
 	return err == nil
+}
+
+// HashData produces a byte hash of the provided data using the SHA-256 hashing algorithm.
+func HashData(data []byte) DataHash {
+	return sha256.Sum256(data)
+}
+
+// CheckDataHash compares a slice of byte data with a hash using SHA-256. If using this algorithm to
+// hash the provided data would produce the provided hash, then the function returns true. Otherwise
+// the function returns false.
+func CheckDataHash(data []byte, hash DataHash) bool {
+	return hash == sha256.Sum256(data)
 }
 
 // NewSalt creates a new slice containing saltlen bytes. The resulting salt is used when generating
@@ -225,4 +243,14 @@ func (s Salt) String() string {
 // String returns a string containing a hexadecimal representation of the Key receiver.
 func (k Key) String() string {
 	return hex.EncodeToString(k)
+}
+
+// String returns a string containing a hexadecimal representation of the PassHash receiver.
+func (h PassHash) String() string {
+	return hex.EncodeToString(h)
+}
+
+// String returns a string containing a hexadecimal representation of the DataHash receiver.
+func (h DataHash) String() string {
+	return hex.EncodeToString(h[:])
 }

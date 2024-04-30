@@ -24,13 +24,12 @@ func CreateTables(db *sql.DB) error {
 	_, err = tx.Exec(`
 		CREATE TABLE IF NOT EXISTS info (
 			id 		TEXT,
-			gid		TEXT,
-			name	TEXT,
-			desc	TEXT,
+			ghash	BLOB,
 			psalt	BLOB,
-			phash	TEXT,
+			phash	BLOB,
 			ekey 	BLOB,
-			
+			data	BLOB,
+	
 			PRIMARY KEY (id),
 			UNIQUE (gid)
 		)
@@ -45,7 +44,8 @@ func CreateTables(db *sql.DB) error {
 			id 			TEXT,
 			created		TEXT,
 			updated		TEXT,
-			hash		TEXT,
+			uhash		BLOB,
+			phash		BLOB,
 			data 		BLOB,
 			
 			PRIMARY KEY (id)

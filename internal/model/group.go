@@ -53,11 +53,11 @@ type CreateGroupParams struct {
 }
 
 type GetGroupNameParams struct {
-	Key crypto.Key
+	PassKey crypto.Key
 }
 
 type GetGroupDescriptionParams struct {
-	Key crypto.Key
+	PassKey crypto.Key
 }
 
 type AuthenticateGroupParams struct {
@@ -69,7 +69,7 @@ type UpdateGroupParams struct {
 	GroupId     *string
 	Name        *string
 	Description *string
-	Key         crypto.Key
+	PassKey     crypto.Key
 }
 
 type ChangeGroupPasswordParams struct {

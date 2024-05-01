@@ -30,7 +30,7 @@ func (s GroupService) CreateGroup(
 	}
 
 	// Generate a new random key that will encrypt all data for the group (data key)
-	randomKey, err := crypto.NewRandomKey()
+	dkey, err := crypto.NewRandomKey()
 	if err != nil {
 		var g model.Group
 		return g, fmt.Errorf("failed to create new data encryption key for group: %v", err)
@@ -42,11 +42,10 @@ func (s GroupService) CreateGroup(
 		var g model.Group
 		return g, fmt.Errorf("failed to create salt for new group: %v", err)
 	}
+	pkey := crypto.NewDerivedKey(params.Password, psalt)
 
-	derivedKey := crypto.NewDerivedKey(params.Password, psalt)
-
-	// Encyrypt the data key before we store it in the database
-	ekey, err := crypto.Encrypt(derivedKey, randomKey)
+	// Encyrypt the data key using the pass key before we store it in the database
+	ekey, err := crypto.Encrypt(pkey, dkey)
 	if err != nil {
 		var g model.Group
 		return g, fmt.Errorf("failed to encrypt data key: %v", err)
@@ -63,7 +62,7 @@ func (s GroupService) CreateGroup(
 	}
 
 	// Encrypt the group information to protect privacy
-	a := crypto.NewAgent[model.Group](randomKey)
+	a := crypto.NewAgent[model.Group](dkey)
 	data, err := a.Encrypt(g)
 	if err != nil {
 		var g model.Group
@@ -86,7 +85,7 @@ func (s GroupService) CreateGroup(
 func (s GroupService) GetGroupName(
 	ctx context.Context, p model.GetGroupNameParams,
 ) (string, error) {
-	g, err := s.getDecryptedGroupData(ctx, p.Key)
+	g, err := s.getDecryptedGroupData(ctx, p.PassKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to decrypt group data: %v", err)
 	}
@@ -96,25 +95,11 @@ func (s GroupService) GetGroupName(
 func (s GroupService) GetGroupDescription(
 	ctx context.Context, p model.GetGroupDescriptionParams,
 ) (string, error) {
-	g, err := s.getDecryptedGroupData(ctx, p.Key)
+	g, err := s.getDecryptedGroupData(ctx, p.PassKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to decrypt group data: %v", err)
 	}
 	return g.Description, nil
-}
-
-func (s GroupService) getDecryptedGroupData(
-	ctx context.Context, key crypto.Key,
-) (model.Group, error) {
-	var data []byte
-	err := s.db.QueryRowContext(ctx, "SELECT data FROM info").Scan(&data)
-	if err != nil {
-		var g model.Group
-		return g, fmt.Errorf("failed to get group data from database: %v", err)
-	}
-
-	a := crypto.NewAgent[model.Group](key)
-	return a.Decrypt(data)
 }
 
 func (s GroupService) GetGroupPassKey(
@@ -175,7 +160,7 @@ func (s GroupService) AuthenticateGroup(
 }
 
 func (s GroupService) UpdateGroup(ctx context.Context, params model.UpdateGroupParams) error {
-	g, err := s.getDecryptedGroupData(ctx, params.Key)
+	g, err := s.getDecryptedGroupData(ctx, params.PassKey)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt group data: %v", err)
 	}
@@ -190,18 +175,7 @@ func (s GroupService) UpdateGroup(ctx context.Context, params model.UpdateGroupP
 		g.Description = *params.Description
 	}
 
-	a := crypto.NewAgent[model.Group](params.Key)
-	data, err := a.Encrypt(g)
-	if err != nil {
-		return fmt.Errorf("failed to encrypt updated group data: %v", err)
-	}
-
-	_, err = s.db.ExecContext(ctx, "UPDATE info SET data = ?", data)
-	if err != nil {
-		return fmt.Errorf("failed to store updated group data in database: %v", err)
-	}
-
-	return nil
+	return s.setEncryptedGroupData(ctx, params.PassKey, g)
 }
 
 func (s GroupService) ChangeGroupPassword(
@@ -247,6 +221,48 @@ func (s GroupService) ChangeGroupPassword(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to store new password information in database: %v", err)
+	}
+
+	return nil
+}
+
+func (s GroupService) getDecryptedGroupData(
+	ctx context.Context, pkey crypto.Key,
+) (model.Group, error) {
+	dkey, err := s.GetGroupDataKey(ctx, model.GetGroupDataKeyParams{PassKey: pkey})
+	if err != nil {
+		var g model.Group
+		return g, fmt.Errorf("failed to get group data key: %v", err)
+	}
+
+	var data []byte
+	err = s.db.QueryRowContext(ctx, "SELECT data FROM info").Scan(&data)
+	if err != nil {
+		var g model.Group
+		return g, fmt.Errorf("failed to get group data from database: %v", err)
+	}
+
+	a := crypto.NewAgent[model.Group](dkey)
+	return a.Decrypt(data)
+}
+
+func (s GroupService) setEncryptedGroupData(
+	ctx context.Context, pkey crypto.Key, g model.Group,
+) error {
+	dkey, err := s.GetGroupDataKey(ctx, model.GetGroupDataKeyParams{PassKey: pkey})
+	if err != nil {
+		return fmt.Errorf("failed to get group data key for encryption: %v", err)
+	}
+
+	a := crypto.NewAgent[model.Group](dkey)
+	data, err := a.Encrypt(g)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt updated group data: %v", err)
+	}
+
+	_, err = s.db.ExecContext(ctx, "UPDATE info SET data = ?", data)
+	if err != nil {
+		return fmt.Errorf("failed to store updated group data in database: %v", err)
 	}
 
 	return nil

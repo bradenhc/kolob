@@ -40,7 +40,14 @@ func (s *MemberService) CreateMember(
 	created := m.CreatedAt.Format(time.RFC3339)
 	updated := m.UpdatedAt.Format(time.RFC3339)
 
-	a := crypto.NewAgent[model.Member](p.Key)
+	gs := NewGroupService(s.db)
+	dkey, err := gs.GetGroupDataKey(ctx, model.GetGroupDataKeyParams{PassKey: p.PassKey})
+	if err != nil {
+		var m model.Member
+		return m, fmt.Errorf("failed to get group data key: %v", err)
+	}
+
+	a := crypto.NewAgent[model.Member](dkey)
 	data, err := a.Encrypt(m)
 	if err != nil {
 		var m model.Member

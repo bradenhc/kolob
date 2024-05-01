@@ -48,20 +48,20 @@ type CreateMemberParams struct {
 	Username string          `json:"username"`
 	Name     string          `json:"name"`
 	Password crypto.Password `json:"pass"`
-	Key      crypto.Key      `json:"-"`
+	PassKey  crypto.Key      `json:"-"`
 }
 
 type AuthenticateMemberParams struct {
 	Username string          `json:"username"`
 	Password crypto.Password `json:"password"`
-	Key      crypto.Key      `json:"-"`
+	PassKey  crypto.Key      `json:"-"`
 }
 
 type UpdateMemberParams struct {
 	Id       Uuid       `json:"id"`
 	Username *string    `json:"username"`
 	Name     *string    `json:"name"`
-	Key      crypto.Key `json:"-"`
+	PassKey  crypto.Key `json:"-"`
 }
 
 type RemoveMemberParams struct {
@@ -70,10 +70,10 @@ type RemoveMemberParams struct {
 
 type ListMembersParams struct {
 	NamePattern *string    `json:"pattern"`
-	Key         crypto.Key `json:"-"`
+	PassKey     crypto.Key `json:"-"`
 }
 
 type FindMemberByUsernameParams struct {
 	Username string     `json:"username"`
-	Key      crypto.Key `json:"-"`
+	PassKey  crypto.Key `json:"-"`
 }

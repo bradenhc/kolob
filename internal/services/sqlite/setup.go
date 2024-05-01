@@ -20,9 +20,9 @@ func CreateTables(db *sql.DB) error {
 	}
 	defer tx.Rollback()
 
-	slog.Info("Setting up table: info")
+	slog.Info("Setting up table: group")
 	_, err = tx.Exec(`
-		CREATE TABLE IF NOT EXISTS info (
+		CREATE TABLE IF NOT EXISTS [group] (
 			id 		TEXT,
 			ghash	BLOB,
 			psalt	BLOB,
@@ -31,11 +31,11 @@ func CreateTables(db *sql.DB) error {
 			data	BLOB,
 	
 			PRIMARY KEY (id),
-			UNIQUE (gid)
+			UNIQUE (ghash)
 		)
 	`)
 	if err != nil {
-		return fmt.Errorf("failed to create info table: %v", err)
+		return fmt.Errorf("failed to create group table: %v", err)
 	}
 
 	slog.Info("Setting up table: member")
@@ -48,7 +48,8 @@ func CreateTables(db *sql.DB) error {
 			phash		BLOB,
 			data 		BLOB,
 			
-			PRIMARY KEY (id)
+			PRIMARY KEY (id),
+			UNIQUE (uhash)
 		)
 	`)
 	if err != nil {
@@ -73,14 +74,16 @@ func CreateTables(db *sql.DB) error {
 	slog.Info("Setting up table: message")
 	_, err = tx.Exec(`
 		CREATE TABLE IF NOT EXISTS message (
-			id			TEXT,
-			author		TEXT,
-			created		TEXT,
-			updated		TEXT,
-			data		BLOB,
+			id				TEXT,
+			conversation	TEXT,
+			author			TEXT,
+			created			TEXT,
+			updated			TEXT,
+			data			BLOB,
 
 			PRIMARY KEY (id),
-			FOREIGN KEY (author) REFERENCES member(id)
+			FOREIGN KEY (conversation) 	REFERENCES conversation(id),
+			FOREIGN KEY (author) 		REFERENCES member(id)
 		)
 	`)
 	if err != nil {
@@ -90,12 +93,12 @@ func CreateTables(db *sql.DB) error {
 	slog.Info("Setting up table: mediates")
 	_, err = tx.Exec(`
 		CREATE TABLE IF NOT EXISTS mediates (
-			m_id TEXT,
-			c_id TEXT,
+			mid TEXT,
+			cid TEXT,
 
-			PRIMARY KEY(m_id, c_id),
-			FOREIGN KEY (m_id) REFERENCES member(id),
-			FOREIGN KEY (c_id) REFERENCES conversation(id)
+			PRIMARY KEY(mid, cid),
+			FOREIGN KEY (mid) REFERENCES member(id),
+			FOREIGN KEY (cid) REFERENCES conversation(id)
 		)
 	`)
 	if err != nil {

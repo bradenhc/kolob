@@ -71,7 +71,7 @@ func (s GroupService) CreateGroup(
 
 	_, err = s.db.ExecContext(
 		ctx,
-		"INSERT INTO info VALUES (?, ?, ?, ?, ?, ?)",
+		"INSERT INTO [group] VALUES (?, ?, ?, ?, ?, ?)",
 		g.Id, ghash, psalt, phash, ekey, data,
 	)
 	if err != nil {
@@ -107,7 +107,7 @@ func (s GroupService) GetGroupPassKey(
 ) (crypto.Key, error) {
 	var salt crypto.Salt
 	var hash crypto.PassHash
-	err := s.db.QueryRowContext(ctx, "SELECT psalt, phash FROM info").Scan(&salt, &hash)
+	err := s.db.QueryRowContext(ctx, "SELECT psalt, phash FROM [group]").Scan(&salt, &hash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get group password salt and hash: %v", err)
 	}
@@ -124,7 +124,7 @@ func (s GroupService) GetGroupDataKey(
 	ctx context.Context, params model.GetGroupDataKeyParams,
 ) (crypto.Key, error) {
 	var ekey []byte
-	err := s.db.QueryRowContext(ctx, "SELECT ekey FROM info").Scan(&ekey)
+	err := s.db.QueryRowContext(ctx, "SELECT ekey FROM [group]").Scan(&ekey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encrypted group data key: %v", err)
 	}
@@ -144,7 +144,7 @@ func (s GroupService) AuthenticateGroup(
 	var phash crypto.PassHash
 	err := s.db.QueryRowContext(
 		ctx,
-		"SELECT phash FROM info WHERE ghash = ?",
+		"SELECT phash FROM [group] WHERE ghash = ?",
 		ghash,
 	).Scan(&phash)
 
@@ -216,7 +216,7 @@ func (s GroupService) ChangeGroupPassword(
 
 	_, err = s.db.ExecContext(
 		ctx,
-		"UPDATE info SET psalt = ?, phash = ?, ekey = ?",
+		"UPDATE [group] SET psalt = ?, phash = ?, ekey = ?",
 		salt, hash, ekey,
 	)
 	if err != nil {
@@ -236,7 +236,7 @@ func (s GroupService) getDecryptedGroupData(
 	}
 
 	var data []byte
-	err = s.db.QueryRowContext(ctx, "SELECT data FROM info").Scan(&data)
+	err = s.db.QueryRowContext(ctx, "SELECT data FROM [group]").Scan(&data)
 	if err != nil {
 		var g model.Group
 		return g, fmt.Errorf("failed to get group data from database: %v", err)
@@ -260,7 +260,7 @@ func (s GroupService) setEncryptedGroupData(
 		return fmt.Errorf("failed to encrypt updated group data: %v", err)
 	}
 
-	_, err = s.db.ExecContext(ctx, "UPDATE info SET data = ?", data)
+	_, err = s.db.ExecContext(ctx, "UPDATE [group] SET data = ?", data)
 	if err != nil {
 		return fmt.Errorf("failed to store updated group data in database: %v", err)
 	}

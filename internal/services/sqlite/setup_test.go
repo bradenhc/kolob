@@ -25,7 +25,7 @@ func TestCreateTables(t *testing.T) {
 		t.Fatalf("failed to create tables: %v", err)
 	}
 
-	checkTable(t, db, "info")
+	checkTable(t, db, "group")
 	checkTable(t, db, "member")
 	checkTable(t, db, "conversation")
 	checkTable(t, db, "message")

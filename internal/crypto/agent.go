@@ -38,7 +38,7 @@ func (a Agent[V]) Decrypt(edata []byte) (V, error) {
 	}
 
 	var v V
-	err = json.Unmarshal(data, v)
+	err = json.Unmarshal(data, &v)
 	if err != nil {
 		return v, fmt.Errorf("failed to deserialize %T value: %v", v, err)
 	}

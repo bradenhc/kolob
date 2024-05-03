@@ -20,7 +20,7 @@ func NewGroupService(db *sql.DB) GroupService {
 	return GroupService{db}
 }
 
-func (s GroupService) CreateGroup(
+func (s *GroupService) CreateGroup(
 	ctx context.Context, params model.CreateGroupParams,
 ) (model.Group, error) {
 	g, err := model.NewGroup(params.GroupId, params.Name, params.Description)
@@ -82,7 +82,7 @@ func (s GroupService) CreateGroup(
 	return g, nil
 }
 
-func (s GroupService) GetGroupInfo(
+func (s *GroupService) GetGroupInfo(
 	ctx context.Context, p model.GetGroupInfoParams,
 ) (model.Group, error) {
 	g, err := s.getDecryptedGroupData(ctx, p.PassKey)
@@ -93,7 +93,7 @@ func (s GroupService) GetGroupInfo(
 	return g, nil
 }
 
-func (s GroupService) GetGroupPassKey(
+func (s *GroupService) GetGroupPassKey(
 	ctx context.Context, params model.GetGroupPassKeyParams,
 ) (crypto.Key, error) {
 	var salt crypto.Salt
@@ -111,7 +111,7 @@ func (s GroupService) GetGroupPassKey(
 	return key, nil
 }
 
-func (s GroupService) GetGroupDataKey(
+func (s *GroupService) GetGroupDataKey(
 	ctx context.Context, params model.GetGroupDataKeyParams,
 ) (crypto.Key, error) {
 	var ekey []byte
@@ -128,7 +128,7 @@ func (s GroupService) GetGroupDataKey(
 	return dkey, nil
 }
 
-func (s GroupService) AuthenticateGroup(
+func (s *GroupService) AuthenticateGroup(
 	ctx context.Context, params model.AuthenticateGroupParams,
 ) error {
 	ghash := crypto.HashData([]byte(params.GroupId))
@@ -150,7 +150,7 @@ func (s GroupService) AuthenticateGroup(
 	return nil
 }
 
-func (s GroupService) UpdateGroup(ctx context.Context, params model.UpdateGroupParams) error {
+func (s *GroupService) UpdateGroup(ctx context.Context, params model.UpdateGroupParams) error {
 	g, err := s.getDecryptedGroupData(ctx, params.PassKey)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt group data: %v", err)
@@ -169,7 +169,7 @@ func (s GroupService) UpdateGroup(ctx context.Context, params model.UpdateGroupP
 	return s.setEncryptedGroupData(ctx, params.PassKey, g)
 }
 
-func (s GroupService) ChangeGroupPassword(
+func (s *GroupService) ChangeGroupPassword(
 	ctx context.Context, params model.ChangeGroupPasswordParams,
 ) error {
 	passParams := model.GetGroupPassKeyParams{
@@ -217,7 +217,7 @@ func (s GroupService) ChangeGroupPassword(
 	return nil
 }
 
-func (s GroupService) getDecryptedGroupData(
+func (s *GroupService) getDecryptedGroupData(
 	ctx context.Context, pkey crypto.Key,
 ) (model.Group, error) {
 	dkey, err := s.GetGroupDataKey(ctx, model.GetGroupDataKeyParams{PassKey: pkey})
@@ -237,7 +237,7 @@ func (s GroupService) getDecryptedGroupData(
 	return a.Decrypt(data)
 }
 
-func (s GroupService) setEncryptedGroupData(
+func (s *GroupService) setEncryptedGroupData(
 	ctx context.Context, pkey crypto.Key, g model.Group,
 ) error {
 	dkey, err := s.GetGroupDataKey(ctx, model.GetGroupDataKeyParams{PassKey: pkey})

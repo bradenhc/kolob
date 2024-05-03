@@ -30,7 +30,8 @@ func (s *MemberService) CreateMember(
 		return m, fmt.Errorf("failed to create new member: %v", err)
 	}
 
-	// Hash the username so that we can store it in the DB without leaking information
+	// Hash the username so that we can store it in the DB without leaking information and use it
+	// for fast lookup later
 	uhash := crypto.HashData([]byte(p.Username))
 
 	// Hash the password so we can use it for authentication

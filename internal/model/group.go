@@ -36,8 +36,7 @@ func NewGroup(gid, name, desc string) (Group, error) {
 
 type GroupService interface {
 	CreateGroup(ctx context.Context, p CreateGroupParams) (Group, error)
-	GetGroupName(ctx context.Context, p GetGroupNameParams) (string, error)
-	GetGroupDescription(ctx context.Context, p GetGroupDescriptionParams) (string, error)
+	GetGroupInfo(ctx context.Context, p GetGroupInfoParams) (Group, error)
 	GetGroupPassKey(ctx context.Context, p GetGroupPassKeyParams) (crypto.Key, error)
 	GetGroupDataKey(ctx context.Context, p GetGroupDataKeyParams) (crypto.Key, error)
 	AuthenticateGroup(ctx context.Context, p AuthenticateGroupParams) error
@@ -46,35 +45,31 @@ type GroupService interface {
 }
 
 type CreateGroupParams struct {
-	GroupId     string
-	Name        string
-	Description string
-	Password    crypto.Password
+	GroupId     string          `json:"gid"`
+	Name        string          `json:"name"`
+	Description string          `json:"desc"`
+	Password    crypto.Password `json:"pass"`
 }
 
-type GetGroupNameParams struct {
-	PassKey crypto.Key
-}
-
-type GetGroupDescriptionParams struct {
+type GetGroupInfoParams struct {
 	PassKey crypto.Key
 }
 
 type AuthenticateGroupParams struct {
-	GroupId  string
-	Password crypto.Password
+	GroupId  string          `json:"gid"`
+	Password crypto.Password `json:"pass"`
 }
 
 type UpdateGroupParams struct {
-	GroupId     *string
-	Name        *string
-	Description *string
-	PassKey     crypto.Key
+	GroupId     *string    `json:"gid"`
+	Name        *string    `json:"name"`
+	Description *string    `json:"desc"`
+	PassKey     crypto.Key `json:"-"`
 }
 
 type ChangeGroupPasswordParams struct {
-	OldPass crypto.Password
-	NewPass crypto.Password
+	OldPass crypto.Password `json:"old"`
+	NewPass crypto.Password `json:"new"`
 }
 
 type GetGroupPassKeyParams struct {

@@ -82,24 +82,15 @@ func (s GroupService) CreateGroup(
 	return g, nil
 }
 
-func (s GroupService) GetGroupName(
-	ctx context.Context, p model.GetGroupNameParams,
-) (string, error) {
+func (s GroupService) GetGroupInfo(
+	ctx context.Context, p model.GetGroupInfoParams,
+) (model.Group, error) {
 	g, err := s.getDecryptedGroupData(ctx, p.PassKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to decrypt group data: %v", err)
+		var g model.Group
+		return g, fmt.Errorf("failed to decrypt group data: %v", err)
 	}
-	return g.Name, nil
-}
-
-func (s GroupService) GetGroupDescription(
-	ctx context.Context, p model.GetGroupDescriptionParams,
-) (string, error) {
-	g, err := s.getDecryptedGroupData(ctx, p.PassKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to decrypt group data: %v", err)
-	}
-	return g.Description, nil
+	return g, nil
 }
 
 func (s GroupService) GetGroupPassKey(

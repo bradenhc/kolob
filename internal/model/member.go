@@ -82,8 +82,7 @@ type RemoveMemberParams struct {
 }
 
 type ListMembersParams struct {
-	NamePattern *string    `json:"pattern"`
-	PassKey     crypto.Key `json:"-"`
+	PassKey crypto.Key `json:"-"`
 }
 
 type FindMemberByUsernameParams struct {

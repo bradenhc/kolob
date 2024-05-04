@@ -16,6 +16,7 @@ import (
 func TestMemberService(t *testing.T) {
 	// Setup the test
 	//
+	t.Parallel()
 	tempdir := t.TempDir()
 	dbpath := path.Join(tempdir, "member-service-test.db")
 

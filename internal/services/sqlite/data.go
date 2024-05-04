@@ -43,7 +43,8 @@ func NewEncryptedDataAccessor[V any](
 
 func (e *EncryptedDataAccessor[V]) Get(ctx context.Context, id model.Uuid) (V, error) {
 	var data []byte
-	err := e.db.QueryRowContext(ctx, "SELECT data FROM [?] WHERE id = ?", e.table, id).Scan(&data)
+	query := fmt.Sprintf("SELECT data FROM [%s] WHERE id = ?", e.table)
+	err := e.db.QueryRowContext(ctx, query, id).Scan(&data)
 	if err != nil {
 		var v V
 		return v, fmt.Errorf("failed to get %s data from database: %v", e.table, err)
@@ -54,7 +55,8 @@ func (e *EncryptedDataAccessor[V]) Get(ctx context.Context, id model.Uuid) (V, e
 
 func (e *EncryptedDataAccessor[V]) GetByIdHash(ctx context.Context, h crypto.DataHash) (V, error) {
 	var d []byte
-	err := e.db.QueryRowContext(ctx, "SELECT data FROM [?] WHERE idhash = ?", e.table, h).Scan(&d)
+	query := fmt.Sprintf("SELECT data FROM [%s] WHERE idhash = ?", e.table)
+	err := e.db.QueryRowContext(ctx, query, h[:]).Scan(&d)
 	if err != nil {
 		var v V
 		return v, fmt.Errorf("failed to get %s data from database by ID hash: %v", e.table, err)
@@ -66,7 +68,8 @@ func (e *EncryptedDataAccessor[V]) GetByIdHash(ctx context.Context, h crypto.Dat
 func (e *EncryptedDataAccessor[V]) GetList(ctx context.Context) ([]V, error) {
 	vs := make([]V, 0)
 
-	rows, err := e.db.QueryContext(ctx, "SELECT data FROM [?]", e.table)
+	query := fmt.Sprintf("SELECT data FROM [%s]", e.table)
+	rows, err := e.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get %s list from database: %v", e.table, err)
 	}
@@ -97,7 +100,8 @@ func (e *EncryptedDataAccessor[V]) Set(ctx context.Context, id model.Uuid, v V) 
 
 	updated := time.Now().Format(time.RFC3339)
 
-	_, err = e.db.ExecContext(ctx, "UPDATE [?] SET data = ?, updated = ?", e.table, data, updated)
+	query := fmt.Sprintf("UPDATE [%s] SET data = ?, updated = ?", e.table)
+	_, err = e.db.ExecContext(ctx, query, data, updated)
 	if err != nil {
 		return fmt.Errorf("failed to store updated %s data in database: %v", e.table, err)
 	}
@@ -115,11 +119,8 @@ func (e *EncryptedDataAccessor[V]) SetWithIdHash(
 
 	updated := time.Now().Format(time.RFC3339)
 
-	_, err = e.db.ExecContext(
-		ctx,
-		"UPDATE [?] SET data = ?, updated = ?, idhash = ?",
-		e.table, data, updated, h,
-	)
+	query := fmt.Sprintf("UPDATE [%s] SET data = ?, updated = ?, idhash = ?", e.table)
+	_, err = e.db.ExecContext(ctx, query, data, updated, h[:])
 	if err != nil {
 		return fmt.Errorf("failed to store updated %s data in database: %v", e.table, err)
 	}

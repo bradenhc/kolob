@@ -28,10 +28,12 @@ func CreateTables(db *sql.DB) error {
 			psalt	BLOB,
 			phash	BLOB,
 			ekey 	BLOB,
+			created TEXT,
+			updated TEXT,
 			data	BLOB,
 	
 			PRIMARY KEY (id),
-			UNIQUE (ghash)
+			UNIQUE (idhash)
 		)
 	`)
 	if err != nil {
@@ -49,7 +51,7 @@ func CreateTables(db *sql.DB) error {
 			data 		BLOB,
 			
 			PRIMARY KEY (id),
-			UNIQUE (uhash)
+			UNIQUE (idhash)
 		)
 	`)
 	if err != nil {

@@ -6,15 +6,18 @@ package model
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/bradenhc/kolob/internal/crypto"
 )
 
 type Group struct {
-	Id          Uuid   `json:"id"`
-	GroupId     string `json:"gid"`
-	Name        string `json:"name"`
-	Description string `json:"desc"`
+	Id          Uuid      `json:"id"`
+	GroupId     string    `json:"gid"`
+	Name        string    `json:"name"`
+	Description string    `json:"desc"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 func NewGroup(gid, name, desc string) (Group, error) {
@@ -24,14 +27,34 @@ func NewGroup(gid, name, desc string) (Group, error) {
 		return g, fmt.Errorf("failed to create UUID for new group: %v", err)
 	}
 
+	now := time.Now()
+
 	g := Group{
 		Id:          id,
 		GroupId:     gid,
 		Name:        name,
 		Description: desc,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	return g, nil
+}
+
+func (a *Group) Equal(b *Group) bool {
+	if a != b {
+		if a == nil || b == nil ||
+			a.Id != b.Id ||
+			a.GroupId != b.GroupId ||
+			a.Name != b.Name ||
+			a.Description != b.Description ||
+			!a.CreatedAt.Equal(b.CreatedAt) ||
+			!a.UpdatedAt.Equal(b.UpdatedAt) {
+			return false
+		}
+	}
+
+	return true
 }
 
 type GroupService interface {
@@ -70,6 +93,7 @@ type UpdateGroupParams struct {
 }
 
 type ChangeGroupPasswordParams struct {
+	Id      Uuid            `json:"id"`
 	OldPass crypto.Password `json:"old"`
 	NewPass crypto.Password `json:"new"`
 }

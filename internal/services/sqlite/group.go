@@ -7,6 +7,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/bradenhc/kolob/internal/crypto"
 	"github.com/bradenhc/kolob/internal/model"
@@ -30,6 +32,7 @@ func (s *GroupService) CreateGroup(
 	}
 
 	// Generate a new random key that will encrypt all data for the group (data key)
+	slog.Info("Generating data encryption key", "group", g.Id)
 	dkey, err := crypto.NewRandomKey()
 	if err != nil {
 		var g model.Group
@@ -42,9 +45,11 @@ func (s *GroupService) CreateGroup(
 		var g model.Group
 		return g, fmt.Errorf("failed to create salt for new group: %v", err)
 	}
+	slog.Info("Deriving password key", "group", g.Id)
 	pkey := crypto.NewDerivedKey(params.Password, psalt)
 
 	// Encyrypt the data key using the pass key before we store it in the database
+	slog.Info("Encrypting data key", "group", g.Id)
 	ekey, err := crypto.Encrypt(pkey, dkey)
 	if err != nil {
 		var g model.Group
@@ -62,6 +67,7 @@ func (s *GroupService) CreateGroup(
 	}
 
 	// Encrypt the group information to protect privacy
+	slog.Info("Encrypting group information", "group", g.Id)
 	a := crypto.NewAgent[model.Group](dkey)
 	data, err := a.Encrypt(g)
 	if err != nil {
@@ -69,10 +75,15 @@ func (s *GroupService) CreateGroup(
 		return g, fmt.Errorf("failed to encrypt group data before storing in database: %v", err)
 	}
 
+	// Format the datetimes as RFC3339-compliant strings for storage in the DB
+	created := g.CreatedAt.Format(time.RFC3339)
+	updated := g.UpdatedAt.Format(time.RFC3339)
+
+	slog.Info("Adding group information to database", "group", g.Id)
 	_, err = s.db.ExecContext(
 		ctx,
-		"INSERT INTO [group] VALUES (?, ?, ?, ?, ?, ?)",
-		g.Id, ghash, psalt, phash, ekey, data,
+		"INSERT INTO [group] VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		g.Id, ghash[:], psalt, phash, ekey, created, updated, data,
 	)
 	if err != nil {
 		var g model.Group
@@ -88,7 +99,7 @@ func (s *GroupService) GetGroupInfo(
 	var g model.Group
 	eda, err := NewEncryptedDataAccessor[model.Group](ctx, s.db, "group", p.PassKey)
 	if err != nil {
-		return g, fmt.Errorf("failed to create encrypted data accessor :%v", err)
+		return g, fmt.Errorf("failed to create encrypted data accessor: %v", err)
 	}
 
 	g, err = eda.Get(ctx, p.Id)
@@ -142,8 +153,8 @@ func (s *GroupService) AuthenticateGroup(
 	var phash crypto.PassHash
 	err := s.db.QueryRowContext(
 		ctx,
-		"SELECT phash FROM [group] WHERE ghash = ?",
-		ghash,
+		"SELECT phash FROM [group] WHERE idhash = ?",
+		ghash[:],
 	).Scan(&phash)
 
 	if err != nil {
@@ -187,40 +198,42 @@ func (s *GroupService) ChangeGroupPassword(
 	passParams := model.GetGroupPassKeyParams{
 		Password: params.OldPass,
 	}
-	passKey, err := s.GetGroupPassKey(ctx, passParams)
+	pkey, err := s.GetGroupPassKey(ctx, passParams)
 	if err != nil {
 		return fmt.Errorf("failed to get group pass key: %v", err)
 	}
 
 	dataParams := model.GetGroupDataKeyParams{
-		PassKey: passKey,
+		PassKey: pkey,
 	}
-	dataKey, err := s.GetGroupDataKey(ctx, dataParams)
+	dkey, err := s.GetGroupDataKey(ctx, dataParams)
 	if err != nil {
 		return fmt.Errorf("failed to get group data key: %v", err)
 	}
 
-	salt, err := crypto.NewSalt()
+	psalt, err := crypto.NewSalt()
 	if err != nil {
 		return fmt.Errorf("failed to generate salt for new password: %v", err)
 	}
 
-	hash, err := crypto.HashPassword(params.NewPass)
+	phash, err := crypto.HashPassword(params.NewPass)
 	if err != nil {
 		return fmt.Errorf("failed to generate hash for new password: %v", err)
 	}
 
-	passKey = crypto.NewDerivedKey(params.NewPass, salt)
+	pkey = crypto.NewDerivedKey(params.NewPass, psalt)
 
-	ekey, err := crypto.Encrypt(passKey, dataKey)
+	ekey, err := crypto.Encrypt(pkey, dkey)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt data key with new password key: %v", err)
 	}
 
+	updated := time.Now().Format(time.RFC3339)
+
 	_, err = s.db.ExecContext(
 		ctx,
-		"UPDATE [group] SET psalt = ?, phash = ?, ekey = ?",
-		salt, hash, ekey,
+		"UPDATE [group] SET psalt = ?, phash = ?, ekey = ?, updated = ? WHERE id = ?",
+		psalt, phash, ekey, updated, params.Id,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to store new password information in database: %v", err)

@@ -62,7 +62,7 @@ func (s *MemberService) CreateMember(
 	_, err = s.db.ExecContext(
 		ctx,
 		"INSERT INTO member VALUES (?, ?, ?, ?, ?, ?)",
-		m.Id, created, updated, uhash, phash, data,
+		m.Id, created, updated, uhash[:], phash, data,
 	)
 	if err != nil {
 		var m model.Member
@@ -70,6 +70,27 @@ func (s *MemberService) CreateMember(
 	}
 
 	return m, nil
+}
+
+func (s *MemberService) AuthenticateMember(
+	ctx context.Context, p model.AuthenticateMemberParams,
+) error {
+	idhash := crypto.HashData([]byte(p.Username))
+	var phash crypto.PassHash
+	err := s.db.QueryRowContext(
+		ctx,
+		"SELECT phash FROM member WHERE idhash = ?",
+		idhash[:],
+	).Scan(&phash)
+	if err != nil {
+		return fmt.Errorf("failed to get member auth from database: %v", err)
+	}
+
+	if !crypto.CheckPasswordHash(p.Password, phash) {
+		return fmt.Errorf("password authentication failed")
+	}
+
+	return nil
 }
 
 func (s *MemberService) UpdateMember(ctx context.Context, p model.UpdateMemberParams) error {

@@ -35,6 +35,20 @@ func NewMember(username, name string) (Member, error) {
 	return m, nil
 }
 
+func (a *Member) Equal(b *Member) bool {
+	if a != b {
+		if a == nil || b == nil ||
+			a.Id != b.Id ||
+			a.Username != b.Username ||
+			a.Name != b.Name ||
+			!a.CreatedAt.Equal(b.CreatedAt) ||
+			!a.UpdatedAt.Equal(b.UpdatedAt) {
+			return false
+		}
+	}
+	return true
+}
+
 type MemberService interface {
 	CreateMember(ctx context.Context, p CreateMemberParams) (Member, error)
 	AuthenticateMember(ctx context.Context, p AuthenticateMemberParams) error
@@ -54,7 +68,6 @@ type CreateMemberParams struct {
 type AuthenticateMemberParams struct {
 	Username string          `json:"username"`
 	Password crypto.Password `json:"password"`
-	PassKey  crypto.Key      `json:"-"`
 }
 
 type UpdateMemberParams struct {

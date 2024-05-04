@@ -139,3 +139,24 @@ func TestRandomKey(t *testing.T) {
 		t.Errorf("key1 == key2, but they should be different")
 	}
 }
+
+func TestHashData(t *testing.T) {
+	data := []byte("some data to hash")
+	hash := crypto.HashData(data)
+
+	if !crypto.CheckDataHash(data, hash) {
+		t.Errorf("check data hash should pass")
+	}
+}
+
+func TestPassHash(t *testing.T) {
+	pass, _ := crypto.NewPassword("Password12345!")
+	hash, err := crypto.HashPassword(pass)
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+
+	if !crypto.CheckPasswordHash(pass, hash) {
+		t.Errorf("check password hash should pass")
+	}
+}

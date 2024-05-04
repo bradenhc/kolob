@@ -162,7 +162,7 @@ func (s *GroupService) AuthenticateGroup(
 	}
 
 	if !crypto.CheckPasswordHash(params.Password, phash) {
-		return fmt.Errorf("password authentication failed for group: %v", err)
+		return fmt.Errorf("password authentication failed")
 	}
 
 	return nil

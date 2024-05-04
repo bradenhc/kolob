@@ -45,17 +45,14 @@ func (s *MemberService) CreateMember(
 	created := m.CreatedAt.Format(time.RFC3339)
 	updated := m.UpdatedAt.Format(time.RFC3339)
 
-	// Get the group data key in preparation for encrypting the member data
-	gs := NewGroupService(s.db)
-	dkey, err := gs.GetGroupDataKey(ctx, model.GetGroupDataKeyParams{PassKey: p.PassKey})
+	// Encrypt the member data prior to storing it in the DB
+	eda, err := NewEncryptedDataAccessor[model.Member](ctx, s.db, "member", p.PassKey)
 	if err != nil {
 		var m model.Member
-		return m, fmt.Errorf("failed to get group data key: %v", err)
+		return m, fmt.Errorf("failed to create encrypted data accessor: %v", err)
 	}
 
-	// Encrypt the member data prior to storing it in the DB
-	a := crypto.NewAgent[model.Member](dkey)
-	data, err := a.Encrypt(m)
+	data, err := eda.Encrypt(m)
 	if err != nil {
 		var m model.Member
 		return m, fmt.Errorf("failed to encrypt member data: %v", err)
@@ -76,22 +73,54 @@ func (s *MemberService) CreateMember(
 }
 
 func (s *MemberService) UpdateMember(ctx context.Context, p model.UpdateMemberParams) error {
-	return nil
+	eda, err := NewEncryptedDataAccessor[model.Member](ctx, s.db, "member", p.PassKey)
+	if err != nil {
+		return fmt.Errorf("failed to create encrypted data accessor: %v", err)
+	}
+
+	m, err := eda.Get(ctx, p.Id)
+	if err != nil {
+		return fmt.Errorf("failed to get encrypted member data: %v", m)
+	}
+
+	if p.Username != nil {
+		m.Username = *p.Username
+	}
+	if p.Name != nil {
+		m.Name = *p.Name
+	}
+
+	return eda.SetWithIdHash(ctx, m.Id, crypto.HashData([]byte(m.Username)), m)
 }
 
 func (s *MemberService) RemoveMember(ctx context.Context, p model.RemoveMemberParams) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM member WHERE id = ?", p.Id)
+	if err != nil {
+		return fmt.Errorf("failed to remove member from database: %v", err)
+	}
+
 	return nil
 }
 
 func (s *MemberService) ListMembers(
 	ctx context.Context, p model.ListMembersParams,
 ) ([]model.Member, error) {
-	return nil, nil
+	eda, err := NewEncryptedDataAccessor[model.Member](ctx, s.db, "member", p.PassKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create encrypted data accessor: %v", err)
+	}
+
+	return eda.GetList(ctx)
 }
 
 func (s *MemberService) FindMemberByUsername(
 	ctx context.Context, p model.FindMemberByUsernameParams,
 ) (model.Member, error) {
-	var m model.Member
-	return m, nil
+	eda, err := NewEncryptedDataAccessor[model.Member](ctx, s.db, "member", p.PassKey)
+	if err != nil {
+		var m model.Member
+		return m, fmt.Errorf("failed to create encrypted data accessor: %v", err)
+	}
+
+	return eda.GetByIdHash(ctx, crypto.HashData([]byte(p.Username)))
 }

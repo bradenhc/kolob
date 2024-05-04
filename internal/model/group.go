@@ -52,6 +52,7 @@ type CreateGroupParams struct {
 }
 
 type GetGroupInfoParams struct {
+	Id      Uuid
 	PassKey crypto.Key
 }
 
@@ -61,6 +62,7 @@ type AuthenticateGroupParams struct {
 }
 
 type UpdateGroupParams struct {
+	Id          Uuid       `json:"id"`
 	GroupId     *string    `json:"gid"`
 	Name        *string    `json:"name"`
 	Description *string    `json:"desc"`

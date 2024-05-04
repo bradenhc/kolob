@@ -24,7 +24,7 @@ func CreateTables(db *sql.DB) error {
 	_, err = tx.Exec(`
 		CREATE TABLE IF NOT EXISTS [group] (
 			id 		TEXT,
-			ghash	BLOB,
+			idhash	BLOB,
 			psalt	BLOB,
 			phash	BLOB,
 			ekey 	BLOB,
@@ -44,7 +44,7 @@ func CreateTables(db *sql.DB) error {
 			id 			TEXT,
 			created		TEXT,
 			updated		TEXT,
-			uhash		BLOB,
+			idhash		BLOB,
 			phash		BLOB,
 			data 		BLOB,
 			

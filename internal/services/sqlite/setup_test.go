@@ -29,7 +29,7 @@ func TestCreateTables(t *testing.T) {
 	checkTable(t, db, "member")
 	checkTable(t, db, "conversation")
 	checkTable(t, db, "message")
-	checkTable(t, db, "mediates")
+	checkTable(t, db, "moderates")
 }
 
 func checkTable(t *testing.T, db *sql.DB, name string) {

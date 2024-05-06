@@ -5,7 +5,6 @@ package sqlite
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -14,10 +13,10 @@ import (
 )
 
 type MemberService struct {
-	db *sql.DB
+	db QueryExecutor
 }
 
-func NewMemberService(db *sql.DB) MemberService {
+func NewMemberService(db QueryExecutor) MemberService {
 	return MemberService{db}
 }
 

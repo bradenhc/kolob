@@ -92,9 +92,9 @@ func CreateTables(db *sql.DB) error {
 		return fmt.Errorf("failed to create message table: %v", err)
 	}
 
-	slog.Info("Setting up table: mediates")
+	slog.Info("Setting up table: moderates")
 	_, err = tx.Exec(`
-		CREATE TABLE IF NOT EXISTS mediates (
+		CREATE TABLE IF NOT EXISTS moderates (
 			mid TEXT,
 			cid TEXT,
 
@@ -104,7 +104,7 @@ func CreateTables(db *sql.DB) error {
 		)
 	`)
 	if err != nil {
-		return fmt.Errorf("failed to create mediates table: %v", err)
+		return fmt.Errorf("failed to create moderates table: %v", err)
 	}
 
 	err = tx.Commit()

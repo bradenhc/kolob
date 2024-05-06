@@ -5,7 +5,6 @@ package sqlite
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"time"
@@ -15,10 +14,10 @@ import (
 )
 
 type GroupService struct {
-	db *sql.DB
+	db QueryExecutor
 }
 
-func NewGroupService(db *sql.DB) GroupService {
+func NewGroupService(db QueryExecutor) GroupService {
 	return GroupService{db}
 }
 

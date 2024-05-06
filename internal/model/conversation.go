@@ -7,14 +7,16 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/bradenhc/kolob/internal/crypto"
 )
 
 type Conversation struct {
-	Id        Uuid      `json:"id"`
-	Name      string    `json:"name"`
-	Moderator Uuid      `json:"moderator"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Id         Uuid      `json:"id"`
+	Name       string    `json:"name"`
+	Moderators []Uuid    `json:"moderators"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 func NewConversation(name string, moderator Uuid) (Conversation, error) {
@@ -25,11 +27,13 @@ func NewConversation(name string, moderator Uuid) (Conversation, error) {
 		return c, fmt.Errorf("failed to create conversation: %v", err)
 	}
 
+	now := time.Now()
+
 	c.Id = uuid
 	c.Name = name
-	c.Moderator = moderator
-	c.CreatedAt = time.Now()
-	c.UpdatedAt = time.Now()
+	c.Moderators = []Uuid{moderator}
+	c.CreatedAt = now
+	c.UpdatedAt = now
 
 	return c, nil
 }
@@ -43,14 +47,15 @@ type ConversationService interface {
 }
 
 type CreateConversationParams struct {
-	Name      string `json:"name"`
-	Moderator Uuid   `json:"moderator"`
+	Name      string     `json:"name"`
+	Moderator Uuid       `json:"moderator"`
+	PassKey   crypto.Key `json:"-"`
 }
 
 type UpdateConversationParams struct {
-	Id        Uuid    `json:"id"`
-	Name      *string `json:"name"`
-	Moderator *Uuid   `json:"moderator"`
+	Id      Uuid       `json:"id"`
+	Name    *string    `json:"name"`
+	PassKey crypto.Key `json:"-"`
 }
 
 type RemoveConversationParams struct {
@@ -58,9 +63,11 @@ type RemoveConversationParams struct {
 }
 
 type ListConversationsParams struct {
-	Pattern *string `json:"pattern"`
+	Pattern *string    `json:"pattern"`
+	PassKey crypto.Key `json:"-"`
 }
 
 type FindConversationByIdParams struct {
-	Id Uuid `json:"id"`
+	Id      Uuid       `json:"id"`
+	PassKey crypto.Key `json:"-"`
 }

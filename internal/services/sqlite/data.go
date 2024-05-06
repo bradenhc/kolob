@@ -13,14 +13,20 @@ import (
 	"github.com/bradenhc/kolob/internal/model"
 )
 
+type QueryExecutor interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
 type EncryptedDataAccessor[V any] struct {
-	db    *sql.DB
+	db    QueryExecutor
 	table string
 	agent crypto.Agent[V]
 }
 
 func NewEncryptedDataAccessor[V any](
-	ctx context.Context, db *sql.DB, table string, pkey crypto.Key,
+	ctx context.Context, db QueryExecutor, table string, pkey crypto.Key,
 ) (EncryptedDataAccessor[V], error) {
 	var eda EncryptedDataAccessor[V]
 

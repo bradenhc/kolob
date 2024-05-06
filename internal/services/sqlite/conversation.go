@@ -43,8 +43,6 @@ func (s *ConversationService) CreateConversation(
 		return fail.Zero[model.Conversation]("failed to encrypt conversation info", err)
 	}
 
-	// TODO: add moderator
-
 	// Store the conversation in the database
 	_, err = s.db.ExecContext(
 		ctx,
@@ -53,6 +51,12 @@ func (s *ConversationService) CreateConversation(
 	)
 	if err != nil {
 		return fail.Zero[model.Conversation]("failed to store conversation in database", err)
+	}
+
+	// Add the moderator
+	_, err = s.db.ExecContext(ctx, "INSERT INTO moderates VALUES (?, ?)", c.Moderators[0], c.Id)
+	if err != nil {
+		return fail.Zero[model.Conversation]("failed to store moderates relation in database", err)
 	}
 
 	return c, nil

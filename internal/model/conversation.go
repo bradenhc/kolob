@@ -44,6 +44,8 @@ type ConversationService interface {
 	RemoveConversation(ctx context.Context, p RemoveConversationParams) error
 	ListConversations(ctx context.Context, p ListConversationsParams) ([]Conversation, error)
 	FindConversationById(ctx context.Context, p FindConversationByIdParams) (Conversation, error)
+	AddConversationMods(ctx context.Context, p AddConversationModsParams) error
+	ListConversationMods(ctx context.Context, p ListConversationModsParams) ([]Uuid, error)
 }
 
 type CreateConversationParams struct {
@@ -68,6 +70,17 @@ type ListConversationsParams struct {
 }
 
 type FindConversationByIdParams struct {
+	Id      Uuid       `json:"id"`
+	PassKey crypto.Key `json:"-"`
+}
+
+type AddConversationModsParams struct {
+	Id         Uuid       `json:"id"`
+	Moderators []Uuid     `json:"moderators"`
+	PassKey    crypto.Key `json:"-"`
+}
+
+type ListConversationModsParams struct {
 	Id      Uuid       `json:"id"`
 	PassKey crypto.Key `json:"-"`
 }

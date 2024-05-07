@@ -7,5 +7,9 @@ import "fmt"
 
 func Zero[V any](details string, err error) (V, error) {
 	var v V
-	return v, fmt.Errorf("%s: %v", details, err)
+	return v, Format(details, err)
+}
+
+func Format(details string, err error) error {
+	return fmt.Errorf("%s: %v", details, err)
 }

@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+
+	"github.com/bradenhc/kolob/internal/fail"
 )
 
 // CreateTables uses the provided database connection to create the database tables used by Kolob.
@@ -14,6 +16,11 @@ import (
 // created. It is safe to call this function multiple times even if the tables already exist, or if
 // new tables have been added since the last call.
 func CreateTables(db *sql.DB) error {
+	_, err := db.Exec("PRAGMA foreign_keys = ON")
+	if err != nil {
+		return fail.Format("failed to enable foreign keys", err)
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to open transaction to create tabels: %v", err)
@@ -84,7 +91,7 @@ func CreateTables(db *sql.DB) error {
 			data			BLOB,
 
 			PRIMARY KEY (id),
-			FOREIGN KEY (conversation) 	REFERENCES conversation(id),
+			FOREIGN KEY (conversation) 	REFERENCES conversation(id) ON DELETE CASCADE,
 			FOREIGN KEY (author) 		REFERENCES member(id)
 		)
 	`)
@@ -99,8 +106,8 @@ func CreateTables(db *sql.DB) error {
 			cid TEXT,
 
 			PRIMARY KEY(mid, cid),
-			FOREIGN KEY (mid) REFERENCES member(id),
-			FOREIGN KEY (cid) REFERENCES conversation(id)
+			FOREIGN KEY (mid) REFERENCES member(id) 	  ON DELETE CASCADE,
+			FOREIGN KEY (cid) REFERENCES conversation(id) ON DELETE CASCADE
 		)
 	`)
 	if err != nil {

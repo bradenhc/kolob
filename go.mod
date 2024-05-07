@@ -1,6 +1,6 @@
 module github.com/bradenhc/kolob
 
-go 1.21.5
+go 1.22.0
 
 require (
 	golang.org/x/crypto v0.17.0

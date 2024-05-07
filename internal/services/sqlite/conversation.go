@@ -6,6 +6,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/bradenhc/kolob/internal/fail"
@@ -65,6 +66,25 @@ func (s *ConversationService) CreateConversation(
 func (s *ConversationService) UpdateConversation(
 	ctx context.Context, p model.UpdateConversationParams,
 ) error {
+	eda, err := NewEncryptedDataAccessor[model.Conversation](ctx, s.db, "conversation", p.PassKey)
+	if err != nil {
+		return fail.Format("failed to create encrypted data accessor", err)
+	}
+
+	c, err := eda.Get(ctx, p.Id)
+	if err != nil {
+		return fail.Format("failed to get encrypted conversation", err)
+	}
+
+	if p.Name != nil {
+		c.Name = *p.Name
+	}
+
+	err = eda.Set(ctx, p.Id, c)
+	if err != nil {
+		return fail.Format("failed to set upated conversation information", err)
+	}
+
 	return nil
 }
 
@@ -72,18 +92,80 @@ func (s *ConversationService) RemoveConversation(
 	ctx context.Context,
 	p model.RemoveConversationParams,
 ) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM conversation WHERE id = ?", p.Id)
+	if err != nil {
+		return fail.Format("failed to remove member from database", err)
+	}
+
 	return nil
 }
 
 func (s *ConversationService) ListConversations(
 	ctx context.Context, p model.ListConversationsParams,
 ) ([]model.Conversation, error) {
-	return nil, nil
+	eda, err := NewEncryptedDataAccessor[model.Conversation](ctx, s.db, "conversation", p.PassKey)
+	if err != nil {
+		return nil, fail.Format("failed to create encrypted data accessor", err)
+	}
+
+	cs, err := eda.GetList(ctx)
+	if err != nil {
+		return nil, fail.Format("failed to get conversation list", err)
+	}
+
+	return cs, nil
 }
 
 func (s *ConversationService) FindConversationById(
 	ctx context.Context, p model.FindConversationByIdParams,
 ) (model.Conversation, error) {
-	var m model.Conversation
-	return m, nil
+	eda, err := NewEncryptedDataAccessor[model.Conversation](ctx, s.db, "conversation", p.PassKey)
+	if err != nil {
+		return fail.Zero[model.Conversation]("failed to create encrypted data accessor", err)
+	}
+
+	c, err := eda.Get(ctx, p.Id)
+	if err != nil {
+		return fail.Zero[model.Conversation]("failed to get encrypted conversation", err)
+	}
+
+	return c, nil
+}
+
+func (s *ConversationService) AddConversationMods(
+	ctx context.Context, p model.AddConversationModsParams,
+) error {
+	vals := make([]string, 0)
+	for range len(p.Moderators) {
+		vals = append(vals, "(?, ?)")
+	}
+	query := "INSERT OR IGNORE INTO moderates VALUES " + strings.Join(vals, ", ")
+	ids := make([]any, 0)
+	for _, id := range p.Moderators {
+		ids = append(ids, id, p.Id)
+	}
+	_, err := s.db.ExecContext(ctx, query, ids...)
+	if err != nil {
+		return fail.Format("failed to add moderator entries in database", err)
+	}
+
+	return nil
+}
+
+func (s *ConversationService) ListConversationMods(
+	ctx context.Context, p model.ListConversationModsParams,
+) ([]model.Uuid, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT mid FROM moderates WHERE cid = ?", p.Id)
+	if err != nil {
+		return nil, fail.Format("failed to get conversation moderators from database", err)
+	}
+
+	ids := make([]model.Uuid, 0)
+	for rows.Next() {
+		var id string
+		rows.Scan(&id)
+		ids = append(ids, model.Uuid(id))
+	}
+
+	return ids, nil
 }

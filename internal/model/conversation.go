@@ -38,6 +38,19 @@ func NewConversation(name string, moderator Uuid) (Conversation, error) {
 	return c, nil
 }
 
+func (a *Conversation) Equal(b *Conversation) bool {
+	if a != b {
+		if a == nil || b == nil ||
+			a.Id != b.Id ||
+			a.Name != b.Name ||
+			!a.CreatedAt.Equal(b.CreatedAt) ||
+			!a.UpdatedAt.Equal(b.UpdatedAt) {
+			return false
+		}
+	}
+	return true
+}
+
 type ConversationService interface {
 	CreateConversation(ctx context.Context, p CreateConversationParams) (Conversation, error)
 	UpdateConversation(ctx context.Context, p UpdateConversationParams) error

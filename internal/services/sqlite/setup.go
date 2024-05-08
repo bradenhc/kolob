@@ -92,7 +92,7 @@ func CreateTables(db *sql.DB) error {
 
 			PRIMARY KEY (id),
 			FOREIGN KEY (conversation) 	REFERENCES conversation(id) ON DELETE CASCADE,
-			FOREIGN KEY (author) 		REFERENCES member(id)
+			FOREIGN KEY (author) 		REFERENCES member(id) 		ON DELETE SET NULL
 		)
 	`)
 	if err != nil {

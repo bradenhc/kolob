@@ -110,6 +110,8 @@ func (s *MemberService) UpdateMember(ctx context.Context, p model.UpdateMemberPa
 		m.Name = *p.Name
 	}
 
+	m.UpdatedAt = time.Now()
+
 	return eda.SetWithIdHash(ctx, m.Id, crypto.HashData([]byte(m.Username)), m)
 }
 

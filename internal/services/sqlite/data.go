@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bradenhc/kolob/internal/crypto"
@@ -72,8 +73,6 @@ func (e *EncryptedDataAccessor[V]) GetByIdHash(ctx context.Context, h crypto.Dat
 }
 
 func (e *EncryptedDataAccessor[V]) GetList(ctx context.Context) ([]V, error) {
-	vs := make([]V, 0)
-
 	query := fmt.Sprintf("SELECT data FROM [%s]", e.table)
 	rows, err := e.db.QueryContext(ctx, query)
 	if err != nil {
@@ -81,21 +80,28 @@ func (e *EncryptedDataAccessor[V]) GetList(ctx context.Context) ([]V, error) {
 	}
 	defer rows.Close()
 
-	for rows.Next() {
-		var data []byte
-		if err = rows.Scan(&data); err != nil {
-			return nil, fmt.Errorf("failed to scan %s row: %v", e.table, err)
-		}
+	return e.decryptList(rows)
+}
 
-		v, err := e.Decrypt(data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt %s data: %v", e.table, err)
-		}
-
-		vs = append(vs, v)
+func (e *EncryptedDataAccessor[V]) GetListFilt(
+	ctx context.Context, pred map[string]any,
+) ([]V, error) {
+	where := make([]string, len(pred))
+	parms := make([]any, len(pred))
+	i := 0
+	for k, v := range pred {
+		where[i] = k
+		parms[i] = v
+		i++
 	}
+	query := fmt.Sprintf("SELECT data FROM [%s] WHERE %s", e.table, strings.Join(where, " AND "))
+	rows, err := e.db.QueryContext(ctx, query, parms...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get filtered %s list from database: %v", e.table, err)
+	}
+	defer rows.Close()
 
-	return vs, nil
+	return e.decryptList(rows)
 }
 
 func (e *EncryptedDataAccessor[V]) Set(ctx context.Context, id model.Uuid, v V) error {
@@ -140,4 +146,23 @@ func (e *EncryptedDataAccessor[V]) Encrypt(v V) ([]byte, error) {
 
 func (e *EncryptedDataAccessor[V]) Decrypt(d []byte) (V, error) {
 	return e.agent.Decrypt(d)
+}
+
+func (e *EncryptedDataAccessor[V]) decryptList(rows *sql.Rows) ([]V, error) {
+	vs := make([]V, 0)
+	for rows.Next() {
+		var data []byte
+		if err := rows.Scan(&data); err != nil {
+			return nil, fmt.Errorf("failed to scan %s row: %v", e.table, err)
+		}
+
+		v, err := e.Decrypt(data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt %s data: %v", e.table, err)
+		}
+
+		vs = append(vs, v)
+	}
+
+	return vs, nil
 }

@@ -188,6 +188,8 @@ func (s *GroupService) UpdateGroup(ctx context.Context, p model.UpdateGroupParam
 		g.Description = *p.Description
 	}
 
+	g.UpdatedAt = time.Now()
+
 	return eda.SetWithIdHash(ctx, p.Id, crypto.HashData([]byte(g.GroupId)), g)
 }
 

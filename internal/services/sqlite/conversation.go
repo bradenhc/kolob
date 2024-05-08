@@ -80,9 +80,11 @@ func (s *ConversationService) UpdateConversation(
 		c.Name = *p.Name
 	}
 
+	c.UpdatedAt = time.Now()
+
 	err = eda.Set(ctx, p.Id, c)
 	if err != nil {
-		return fail.Format("failed to set upated conversation information", err)
+		return fail.Format("failed to set updated conversation information", err)
 	}
 
 	return nil

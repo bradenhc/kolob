@@ -5,6 +5,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"regexp"
 	"time"
 
@@ -13,10 +14,10 @@ import (
 )
 
 type MessageService struct {
-	db QueryExecutor
+	db *sql.DB
 }
 
-func NewMessageService(db QueryExecutor) MessageService {
+func NewMessageService(db *sql.DB) MessageService {
 	return MessageService{db}
 }
 
@@ -64,7 +65,7 @@ func (s *MessageService) GetMessage(
 		return fail.Zero[model.Message]("failed to create encrypted data accessor", err)
 	}
 
-	return eda.Get(ctx, p.Id)
+	return eda.Get(ctx, s.db, p.Id)
 }
 
 func (s *MessageService) UpdateMessage(ctx context.Context, p model.UpdateMessageParams) error {
@@ -74,7 +75,7 @@ func (s *MessageService) UpdateMessage(ctx context.Context, p model.UpdateMessag
 		return fail.Format("failed to create encrypted data accessor", err)
 	}
 
-	m, err := eda.Get(ctx, p.Id)
+	m, err := eda.Get(ctx, s.db, p.Id)
 	if err != nil {
 		return fail.Format("failed to get original message prior to update", err)
 	}
@@ -87,7 +88,7 @@ func (s *MessageService) UpdateMessage(ctx context.Context, p model.UpdateMessag
 	m.UpdatedAt = time.Now()
 
 	// Update the entry in the database
-	err = eda.Set(ctx, m.Id, m)
+	err = eda.Set(ctx, s.db, m.Id, m)
 	if err != nil {
 		return fail.Format("failed to store updated message in database", err)
 	}
@@ -119,7 +120,7 @@ func (s *MessageService) ListMessages(
 	if p.EndDate != nil {
 		pred["created <= ?"] = p.EndDate.Format(time.RFC3339)
 	}
-	mlist, err := eda.GetListFilt(ctx, pred)
+	mlist, err := eda.GetListFilt(ctx, s.db, pred)
 	if err != nil {
 		return nil, fail.Format("failed to get filtered list", err)
 	}

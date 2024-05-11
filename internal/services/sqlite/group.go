@@ -5,29 +5,43 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/bradenhc/kolob/internal/crypto"
+	"github.com/bradenhc/kolob/internal/fail"
 	"github.com/bradenhc/kolob/internal/model"
 )
 
 type GroupService struct {
-	db QueryExecutor
+	db *sql.DB
 }
 
-func NewGroupService(db QueryExecutor) GroupService {
+func NewGroupService(db *sql.DB) GroupService {
 	return GroupService{db}
 }
 
-func (s *GroupService) CreateGroup(
+func (s *GroupService) InitGroup(
 	ctx context.Context, params model.CreateGroupParams,
 ) (model.Group, error) {
+	// Make sure there isn't already a set of group information in the database
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM [group]").Scan(&count)
+	if err != nil {
+		return fail.Zero[model.Group]("failed to check for existing group information", err)
+	}
+	if count != 0 {
+		var g model.Group
+		return g, errors.New("group has already been initialized")
+	}
+
 	g, err := model.NewGroup(params.GroupId, params.Name, params.Description)
 	if err != nil {
 		var g model.Group
-		return g, fmt.Errorf("failed to create new group: %v", err)
+		return g, fmt.Errorf("failed to initialize group: %v", err)
 	}
 
 	// Generate a new random key that will encrypt all data for the group (data key)
@@ -42,7 +56,7 @@ func (s *GroupService) CreateGroup(
 	psalt, err := crypto.NewSalt()
 	if err != nil {
 		var g model.Group
-		return g, fmt.Errorf("failed to create salt for new group: %v", err)
+		return g, fmt.Errorf("failed to create salt for group: %v", err)
 	}
 	slog.Info("Deriving password key", "group", g.Id)
 	pkey := crypto.NewDerivedKey(params.Password, psalt)
@@ -101,7 +115,7 @@ func (s *GroupService) GetGroupInfo(
 		return g, fmt.Errorf("failed to create encrypted data accessor: %v", err)
 	}
 
-	g, err = eda.Get(ctx, p.Id)
+	g, err = eda.Get(ctx, s.db, p.Id)
 	if err != nil {
 		var g model.Group
 		return g, fmt.Errorf("failed to decrypt group data: %v", err)
@@ -173,7 +187,7 @@ func (s *GroupService) UpdateGroup(ctx context.Context, p model.UpdateGroupParam
 		return fmt.Errorf("failed to create encrypted data accessor: %v", err)
 	}
 
-	g, err := eda.Get(ctx, p.Id)
+	g, err := eda.Get(ctx, s.db, p.Id)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt group data: %v", err)
 	}
@@ -190,7 +204,7 @@ func (s *GroupService) UpdateGroup(ctx context.Context, p model.UpdateGroupParam
 
 	g.UpdatedAt = time.Now()
 
-	return eda.SetWithIdHash(ctx, p.Id, crypto.HashData([]byte(g.GroupId)), g)
+	return eda.SetWithIdHash(ctx, s.db, p.Id, crypto.HashData([]byte(g.GroupId)), g)
 }
 
 func (s *GroupService) ChangeGroupPassword(

@@ -5,6 +5,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -13,10 +14,10 @@ import (
 )
 
 type MemberService struct {
-	db QueryExecutor
+	db *sql.DB
 }
 
-func NewMemberService(db QueryExecutor) MemberService {
+func NewMemberService(db *sql.DB) MemberService {
 	return MemberService{db}
 }
 
@@ -98,7 +99,7 @@ func (s *MemberService) UpdateMember(ctx context.Context, p model.UpdateMemberPa
 		return fmt.Errorf("failed to create encrypted data accessor: %v", err)
 	}
 
-	m, err := eda.Get(ctx, p.Id)
+	m, err := eda.Get(ctx, s.db, p.Id)
 	if err != nil {
 		return fmt.Errorf("failed to get encrypted member data: %v", m)
 	}
@@ -112,7 +113,7 @@ func (s *MemberService) UpdateMember(ctx context.Context, p model.UpdateMemberPa
 
 	m.UpdatedAt = time.Now()
 
-	return eda.SetWithIdHash(ctx, m.Id, crypto.HashData([]byte(m.Username)), m)
+	return eda.SetWithIdHash(ctx, s.db, m.Id, crypto.HashData([]byte(m.Username)), m)
 }
 
 func (s *MemberService) RemoveMember(ctx context.Context, p model.RemoveMemberParams) error {
@@ -132,7 +133,7 @@ func (s *MemberService) ListMembers(
 		return nil, fmt.Errorf("failed to create encrypted data accessor: %v", err)
 	}
 
-	return eda.GetList(ctx)
+	return eda.GetList(ctx, s.db)
 }
 
 func (s *MemberService) FindMemberByUsername(
@@ -144,5 +145,5 @@ func (s *MemberService) FindMemberByUsername(
 		return m, fmt.Errorf("failed to create encrypted data accessor: %v", err)
 	}
 
-	return eda.GetByIdHash(ctx, crypto.HashData([]byte(p.Username)))
+	return eda.GetByIdHash(ctx, s.db, crypto.HashData([]byte(p.Username)))
 }

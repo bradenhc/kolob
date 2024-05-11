@@ -58,7 +58,7 @@ func (a *Group) Equal(b *Group) bool {
 }
 
 type GroupService interface {
-	CreateGroup(ctx context.Context, p CreateGroupParams) (Group, error)
+	InitGroup(ctx context.Context, p CreateGroupParams) (Group, error)
 	GetGroupInfo(ctx context.Context, p GetGroupInfoParams) (Group, error)
 	GetGroupPassKey(ctx context.Context, p GetGroupPassKeyParams) (crypto.Key, error)
 	GetGroupDataKey(ctx context.Context, p GetGroupDataKeyParams) (crypto.Key, error)

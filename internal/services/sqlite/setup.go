@@ -9,12 +9,36 @@ import (
 	"log/slog"
 
 	"github.com/bradenhc/kolob/internal/fail"
+	_ "modernc.org/sqlite"
 )
+
+// Open creates a new connection to an SQLite database on the filesystem at the provided path. It
+// also initialies the database and sets up the tables needed by Kolob.
+//
+// The returned DB handle is safe to use throughout the lifetime of the program and by multiple
+// goroutines; therefore, Open should only be called once when the program starts.
+func Open(path string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = CreateTables(db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tables: %v", err)
+	}
+
+	return db, nil
+}
 
 // CreateTables uses the provided database connection to create the database tables used by Kolob.
 // The tables are created inside a transaction: either the all get created or none of them get
 // created. It is safe to call this function multiple times even if the tables already exist, or if
 // new tables have been added since the last call.
+//
+// CreateTables is called explicitly in the call to Open, so you rarely need to call this method
+// directly; however, it is exported in case you have your own database connection you want to
+// setup tables for.
 func CreateTables(db *sql.DB) error {
 	_, err := db.Exec("PRAGMA foreign_keys = ON")
 	if err != nil {

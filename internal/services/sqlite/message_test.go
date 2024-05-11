@@ -26,18 +26,13 @@ func TestMessageService(t *testing.T) {
 		t.Fatalf("failed to open database: %v", err)
 	}
 
-	err = sqlite.CreateTables(db)
-	if err != nil {
-		t.Fatalf("failed to create tables: %v", err)
-	}
-
 	ctx := context.Background()
 
 	// Create the group this conversation and the mediator member will belong to
 	//
 	gpass, _ := crypto.NewPassword("Password123456!")
 	gs := sqlite.NewGroupService(db)
-	_, err = gs.CreateGroup(ctx, model.CreateGroupParams{
+	_, err = gs.InitGroup(ctx, model.CreateGroupParams{
 		GroupId:     "testgroup",
 		Name:        "Test Group",
 		Description: "A group for this test",

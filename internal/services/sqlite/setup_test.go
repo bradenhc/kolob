@@ -20,11 +20,6 @@ func TestCreateTables(t *testing.T) {
 		t.Fatalf("failed to open database: %v", err)
 	}
 
-	err = sqlite.CreateTables(db)
-	if err != nil {
-		t.Fatalf("failed to create tables: %v", err)
-	}
-
 	checkTable(t, db, "group")
 	checkTable(t, db, "member")
 	checkTable(t, db, "conversation")

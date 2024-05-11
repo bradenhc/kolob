@@ -14,7 +14,7 @@ import (
 )
 
 type ConversationService struct {
-	db QueryExecutor
+	db *sql.DB
 }
 
 func NewConversationService(db *sql.DB) ConversationService {
@@ -71,7 +71,7 @@ func (s *ConversationService) UpdateConversation(
 		return fail.Format("failed to create encrypted data accessor", err)
 	}
 
-	c, err := eda.Get(ctx, p.Id)
+	c, err := eda.Get(ctx, s.db, p.Id)
 	if err != nil {
 		return fail.Format("failed to get encrypted conversation", err)
 	}
@@ -82,7 +82,7 @@ func (s *ConversationService) UpdateConversation(
 
 	c.UpdatedAt = time.Now()
 
-	err = eda.Set(ctx, p.Id, c)
+	err = eda.Set(ctx, s.db, p.Id, c)
 	if err != nil {
 		return fail.Format("failed to set updated conversation information", err)
 	}
@@ -110,7 +110,7 @@ func (s *ConversationService) ListConversations(
 		return nil, fail.Format("failed to create encrypted data accessor", err)
 	}
 
-	cs, err := eda.GetList(ctx)
+	cs, err := eda.GetList(ctx, s.db)
 	if err != nil {
 		return nil, fail.Format("failed to get conversation list", err)
 	}
@@ -126,7 +126,7 @@ func (s *ConversationService) FindConversationById(
 		return fail.Zero[model.Conversation]("failed to create encrypted data accessor", err)
 	}
 
-	c, err := eda.Get(ctx, p.Id)
+	c, err := eda.Get(ctx, s.db, p.Id)
 	if err != nil {
 		return fail.Zero[model.Conversation]("failed to get encrypted conversation", err)
 	}

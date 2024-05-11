@@ -25,11 +25,6 @@ func TestGroupTable(t *testing.T) {
 		t.Fatalf("failed to open database: %v", err)
 	}
 
-	err = sqlite.CreateTables(db)
-	if err != nil {
-		t.Fatalf("failed to create tables: %v", err)
-	}
-
 	// Create the group service we will test
 	//
 	gs := sqlite.NewGroupService(db)
@@ -42,7 +37,7 @@ func TestGroupTable(t *testing.T) {
 	pass, _ := crypto.NewPassword("password")
 
 	ctx := context.Background()
-	a, err := gs.CreateGroup(ctx, model.CreateGroupParams{
+	a, err := gs.InitGroup(ctx, model.CreateGroupParams{
 		GroupId:     gid,
 		Name:        name,
 		Description: desc,

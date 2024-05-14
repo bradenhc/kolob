@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/bradenhc/kolob/internal/model"
+	"github.com/bradenhc/kolob/internal/server/session"
 )
 
 type GroupHandler struct {
@@ -19,14 +20,14 @@ func NewGroupHandler(gs model.GroupService) GroupHandler {
 }
 
 func (h *GroupHandler) InitGroup(w http.ResponseWriter, r *http.Request) {
-	var p model.CreateGroupParams
+	var p model.InitGroupParams
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
 		WriteJsonErr(w, http.StatusBadRequest, err)
 		return
 	}
 
-	g, err := h.groups.InitGroup(r.Context(), model.CreateGroupParams{})
+	g, err := h.groups.InitGroup(r.Context(), p)
 	if err != nil {
 		WriteJsonErr(w, http.StatusInternalServerError, err)
 		return
@@ -36,4 +37,19 @@ func (h *GroupHandler) InitGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *GroupHandler) GetGroupInfo(w http.ResponseWriter, r *http.Request) {
+	pkey, err := session.FromContext(r.Context())
+	if err != nil {
+		WriteJsonErr(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	g, err := h.groups.GetGroupInfo(r.Context(), model.GetGroupInfoParams{
+		Id:      model.Uuid(r.PathValue("id")),
+		PassKey: pkey,
+	})
+	if err != nil {
+		WriteJsonErr(w, http.StatusInternalServerError, err)
+	}
+
+	WriteJson(w, http.StatusOK, g)
 }

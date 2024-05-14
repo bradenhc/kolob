@@ -138,6 +138,38 @@ the database is compromised.
 > provided to the NIST. The password criteria was selected based on the
 > [password guidelines] provided by OWASP.
 
+## Interfaces
+
+### REST Over HTTP
+
+The following table provides a summary of the available HTTP resources and the
+methods on those resources you can use to interact with the Kolob server.
+
+| Path                      | Method | Action                                  |
+| :------------------------ | :----- | :-------------------------------------- |
+| `/api/group`              | POST   | Initialize the group for the first time |
+| `/api/group`              | GET    | Fetch group information                 |
+| `/api/group`              | PUT    | Update group information                |
+| `/api/group/auth`         | POST   | Sign in with group credentials          |
+| `/api/group/auth`         | PUT    | Update group credentials                |
+| `/api/membrs`             | POST   | Add a member to the group               |
+| `/api/membrs`             | GET    | List all group members                  |
+| `/api/membrs/auth`        | POST   | Sign in with member credentials         |
+| `/api/membrs/{id}`        | GET    | Fetch member information                |
+| `/api/membrs/{id}`        | PUT    | Update member information               |
+| `/api/membrs/{id}`        | DELETE | Remove a member from the group          |
+| `/api/membrs/{id}/auth`   | PUT    | Update member credentials               |
+| `/api/convos`             | POST   | Create a new conversation               |
+| `/api/convos/{id}`        | GET    | Fetch conversation information          |
+| `/api/convos/{id}`        | PUT    | Update conversation information         |
+| `/api/convos/{id}/msgs`   | GET    | List all messages in a conversation     |
+| `/api/convos/{id}/membrs` | GET    | List all messages in a conversation     |
+| `/api/msgs/{id}`          | PUT    | Update a message                        |
+| `/api/msgs/{id}`          | DELETE | Delete a message                        |
+| `/api/msgs/{id}/thread`   | POST   | Add to a message thread                 |
+| `/api/thread/{id}`        | PUT    | Update a thread message                 |
+| `/api/thread/{id}`        | DELETE | Remove to a message thread              |
+
 ## Design
 
 TODO

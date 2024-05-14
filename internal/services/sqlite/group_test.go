@@ -37,7 +37,7 @@ func TestGroupTable(t *testing.T) {
 	pass, _ := crypto.NewPassword("password")
 
 	ctx := context.Background()
-	a, err := gs.InitGroup(ctx, model.CreateGroupParams{
+	a, err := gs.InitGroup(ctx, model.InitGroupParams{
 		GroupId:     gid,
 		Name:        name,
 		Description: desc,

@@ -15,13 +15,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bradenhc/kolob/internal/server/session"
 	"github.com/bradenhc/kolob/internal/services/sqlite"
 )
 
 type ContextKey string
 
 type Server struct {
-	sessions     SessionManager
+	sessions     *session.Manager
 	db           *sql.DB
 	groupHandler GroupHandler
 	httpServer   *http.Server
@@ -36,12 +37,13 @@ func NewServer(c Config) (*Server, error) {
 	groupService := sqlite.NewGroupService(db)
 	groupHandler := NewGroupHandler(&groupService)
 
-	sessions := NewSessionManager()
+	sessions := session.NewManager()
 
-	middlware := NewMiddlewareChain(&sessions)
+	middlware := NewMiddlewareChain(sessions)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/group", middlware.Finish(groupHandler.InitGroup))
+	mux.HandleFunc("POST /api/group", groupHandler.InitGroup)
+	mux.HandleFunc("GET /api/group", middlware.Finish(groupHandler.GetGroupInfo))
 
 	httpServer := http.Server{
 		Addr:    fmt.Sprintf(":%d", c.Port),

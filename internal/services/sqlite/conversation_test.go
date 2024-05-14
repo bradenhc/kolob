@@ -31,7 +31,7 @@ func TestConversationService(t *testing.T) {
 	//
 	gpass, _ := crypto.NewPassword("Password123456!")
 	gs := sqlite.NewGroupService(db)
-	_, err = gs.InitGroup(ctx, model.CreateGroupParams{
+	_, err = gs.InitGroup(ctx, model.InitGroupParams{
 		GroupId:     "testgroup",
 		Name:        "Test Group",
 		Description: "A group for this test",

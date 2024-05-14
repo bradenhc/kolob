@@ -25,7 +25,7 @@ func NewGroupService(db *sql.DB) GroupService {
 }
 
 func (s *GroupService) InitGroup(
-	ctx context.Context, params model.CreateGroupParams,
+	ctx context.Context, params model.InitGroupParams,
 ) (model.Group, error) {
 	// Make sure there isn't already a set of group information in the database
 	var count int

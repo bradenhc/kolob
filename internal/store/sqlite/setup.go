@@ -51,32 +51,12 @@ func CreateTables(db *sql.DB) error {
 	}
 	defer tx.Rollback()
 
-	slog.Info("Setting up table: group")
-	_, err = tx.Exec(`
-		CREATE TABLE IF NOT EXISTS [group] (
-			id 		TEXT,
-			idhash	BLOB,
-			psalt	BLOB,
-			phash	BLOB,
-			ekey 	BLOB,
-			created TEXT,
-			updated TEXT,
-			data	BLOB,
-	
-			PRIMARY KEY (id),
-			UNIQUE (idhash)
-		)
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to create group table: %v", err)
-	}
-
 	slog.Info("Setting up table: member")
 	_, err = tx.Exec(`
 		CREATE TABLE IF NOT EXISTS member (
 			id 			TEXT,
-			created		TEXT,
-			updated		TEXT,
+			created		INTEGER,
+			updated		INTEGER,
 			idhash		BLOB,
 			phash		BLOB,
 			data 		BLOB,
@@ -93,8 +73,8 @@ func CreateTables(db *sql.DB) error {
 	_, err = tx.Exec(`
 		CREATE TABLE IF NOT EXISTS conversation (
 			id			TEXT,
-			created		TEXT,
-			updated		TEXT,
+			created		INTEGER,
+			updated		INTEGER,
 			data		BLOB,
 
 			PRIMARY KEY (id)
@@ -110,8 +90,8 @@ func CreateTables(db *sql.DB) error {
 			id				TEXT,
 			conversation	TEXT,
 			author			TEXT,
-			created			TEXT,
-			updated			TEXT,
+			created			INTEGER,
+			updated			INTEGER,
 			data			BLOB,
 
 			PRIMARY KEY (id),

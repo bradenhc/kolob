@@ -4,104 +4,96 @@
 package model
 
 import (
-	"context"
 	"fmt"
+	"slices"
 	"time"
 
-	"github.com/bradenhc/kolob/internal/crypto"
+	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-type Group struct {
-	Id          Uuid      `json:"id"`
-	GroupId     string    `json:"gid"`
-	Name        string    `json:"name"`
-	Description string    `json:"desc"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-}
-
-func NewGroup(gid, name, desc string) (Group, error) {
+func NewGroup(gid, name, desc string) (*Group, error) {
 	id, err := NewUuid()
 	if err != nil {
-		var g Group
-		return g, fmt.Errorf("failed to create UUID for new group: %v", err)
+		return nil, fmt.Errorf("failed to create UUID for new group: %v", err)
 	}
+
+	builder := flatbuffers.NewBuilder(64)
+
+	gi := builder.CreateString(string(id))
+	gg := builder.CreateString(gid)
+	gn := builder.CreateString(name)
+	gd := builder.CreateString(desc)
 
 	now := time.Now()
 
-	g := Group{
-		Id:          id,
-		GroupId:     gid,
-		Name:        name,
-		Description: desc,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
+	GroupStart(builder)
+	GroupAddId(builder, gi)
+	GroupAddGid(builder, gg)
+	GroupAddName(builder, gn)
+	GroupAddDesc(builder, gd)
+	GroupAddCreated(builder, now.UnixMilli())
+	GroupAddUpdated(builder, now.UnixMilli())
 
-	return g, nil
+	g := GroupEnd(builder)
+
+	builder.Finish(g)
+
+	return GetRootAsGroup(builder.FinishedBytes(), 0), nil
 }
 
-func (a *Group) Equal(b *Group) bool {
+func GroupCloneWithUpdates(prev *Group, gid, name, desc []byte) *Group {
+	builder := flatbuffers.NewBuilder(64)
+	gi := builder.CreateByteString(prev.Id())
+
+	var gh flatbuffers.UOffsetT
+	if gid != nil {
+		gh = builder.CreateByteString(gid)
+	} else {
+		gh = builder.CreateByteString(prev.Gid())
+	}
+
+	var gn flatbuffers.UOffsetT
+	if name != nil {
+		gn = builder.CreateByteString(name)
+	} else {
+		gn = builder.CreateByteString(prev.Name())
+	}
+
+	var gd flatbuffers.UOffsetT
+	if desc != nil {
+		gd = builder.CreateByteString(desc)
+	} else {
+		gd = builder.CreateByteString(prev.Desc())
+	}
+
+	updated := time.Now().UnixMilli()
+
+	GroupStart(builder)
+	GroupAddId(builder, gi)
+	GroupAddGid(builder, gh)
+	GroupAddName(builder, gn)
+	GroupAddDesc(builder, gd)
+	GroupAddCreated(builder, prev.Created())
+	GroupAddUpdated(builder, updated)
+
+	g := GroupEnd(builder)
+
+	builder.Finish(g)
+
+	return GetRootAsGroup(builder.FinishedBytes(), 0)
+}
+
+func GroupEqual(a, b *Group) bool {
 	if a != b {
 		if a == nil || b == nil ||
-			a.Id != b.Id ||
-			a.GroupId != b.GroupId ||
-			a.Name != b.Name ||
-			a.Description != b.Description ||
-			!a.CreatedAt.Equal(b.CreatedAt) ||
-			!a.UpdatedAt.Equal(b.UpdatedAt) {
+			!slices.Equal(a.Id(), b.Id()) ||
+			!slices.Equal(a.Gid(), b.Gid()) ||
+			!slices.Equal(a.Name(), b.Name()) ||
+			!slices.Equal(a.Desc(), b.Desc()) ||
+			a.Created() != b.Created() ||
+			a.Updated() != b.Updated() {
 			return false
 		}
 	}
-
 	return true
-}
-
-type GroupService interface {
-	InitGroup(ctx context.Context, p InitGroupParams) (Group, error)
-	GetGroupInfo(ctx context.Context, p GetGroupInfoParams) (Group, error)
-	GetGroupPassKey(ctx context.Context, p GetGroupPassKeyParams) (crypto.Key, error)
-	GetGroupDataKey(ctx context.Context, p GetGroupDataKeyParams) (crypto.Key, error)
-	AuthenticateGroup(ctx context.Context, p AuthenticateGroupParams) error
-	UpdateGroup(ctx context.Context, p UpdateGroupParams) error
-	ChangeGroupPassword(ctx context.Context, p ChangeGroupPasswordParams) error
-}
-
-type InitGroupParams struct {
-	GroupId     string          `json:"gid"`
-	Name        string          `json:"name"`
-	Description string          `json:"desc"`
-	Password    crypto.Password `json:"pass"`
-}
-
-type GetGroupInfoParams struct {
-	Id      Uuid
-	PassKey crypto.Key
-}
-
-type AuthenticateGroupParams struct {
-	GroupId  string          `json:"gid"`
-	Password crypto.Password `json:"pass"`
-}
-
-type UpdateGroupParams struct {
-	Id          Uuid       `json:"id"`
-	GroupId     *string    `json:"gid"`
-	Name        *string    `json:"name"`
-	Description *string    `json:"desc"`
-	PassKey     crypto.Key `json:"-"`
-}
-
-type ChangeGroupPasswordParams struct {
-	Id      Uuid            `json:"id"`
-	OldPass crypto.Password `json:"old"`
-	NewPass crypto.Password `json:"new"`
-}
-
-type GetGroupPassKeyParams struct {
-	Password crypto.Password
-}
-
-type GetGroupDataKeyParams struct {
-	PassKey crypto.Key
 }

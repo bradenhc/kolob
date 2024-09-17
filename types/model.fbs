@@ -1,0 +1,38 @@
+// ---------------------------------------------------------------------------------------------- //
+// -- Copyright (c) 2024 Braden Hitchcock - MIT License (https://opensource.org/licenses/MIT)  -- //
+// ---------------------------------------------------------------------------------------------- //
+
+namespace internal.model;
+
+table Group {
+    id      : string;
+    gid     : string;
+    name    : string;
+    desc    : string;
+    created : int64;
+    updated : int64;
+}
+
+table Member {
+    id      : string;
+    uname   : string;
+    name    : string;
+    created : int64;
+    updated : int64;
+}
+
+table Conversation {
+    id      : string;
+    name    : string;
+    mods    : [string];
+    created : int64;
+    updated : int64;
+}
+
+table Message {
+    id      : string;
+    author  : string;
+    content : string;
+    created : int64;
+    updated : int64;
+}

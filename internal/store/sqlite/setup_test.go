@@ -8,7 +8,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/bradenhc/kolob/internal/services/sqlite"
+	"github.com/bradenhc/kolob/internal/store/sqlite"
 )
 
 func TestCreateTables(t *testing.T) {

@@ -3,6 +3,7 @@ module github.com/bradenhc/kolob
 go 1.22.0
 
 require (
+	github.com/google/flatbuffers v24.3.25+incompatible
 	golang.org/x/crypto v0.17.0
 	modernc.org/sqlite v1.29.8
 )

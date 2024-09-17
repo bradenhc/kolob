@@ -6,43 +6,50 @@ package model
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/bradenhc/kolob/internal/crypto"
+	"github.com/bradenhc/kolob/internal/types"
+	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-type Member struct {
-	Id        Uuid      `json:"id"`
-	Username  string    `json:"username"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-func NewMember(username, name string) (Member, error) {
-	var m Member
+func NewMember(username, name string) (*types.Member, error) {
 	uuid, err := NewUuid()
 	if err != nil {
-		return m, fmt.Errorf("failed to create new member: %v", err)
+		return nil, fmt.Errorf("failed to create new member: %v", err)
 	}
 
-	m.Id = uuid
-	m.Username = username
-	m.Name = name
-	m.CreatedAt = time.Now()
-	m.UpdatedAt = time.Now()
+	builder := flatbuffers.NewBuilder(256)
 
-	return m, nil
+	mi := builder.CreateString(string(uuid))
+	mu := builder.CreateString(username)
+	mn := builder.CreateString(name)
+
+	now := time.Now()
+
+	types.MemberStart(builder)
+	types.MemberAddId(builder, mi)
+	types.MemberAddUname(builder, mu)
+	types.MemberAddName(builder, mn)
+	types.MemberAddCreated(builder, now.UnixMilli())
+	types.MemberAddUpdated(builder, now.UnixMilli())
+
+	m := types.MemberEnd(builder)
+
+	builder.Finish(m)
+
+	return types.GetRootAsMember(builder.FinishedBytes(), 0), nil
 }
 
-func (a *Member) Equal(b *Member) bool {
+func MemberEqual(a, b *types.Member) bool {
 	if a != b {
 		if a == nil || b == nil ||
-			a.Id != b.Id ||
-			a.Username != b.Username ||
-			a.Name != b.Name ||
-			!a.CreatedAt.Equal(b.CreatedAt) ||
-			!a.UpdatedAt.Equal(b.UpdatedAt) {
+			!slices.Equal(a.Id(), b.Id()) ||
+			!slices.Equal(a.Uname(), b.Uname()) ||
+			!slices.Equal(a.Name(), b.Name()) ||
+			a.Created() != b.Created() ||
+			a.Updated() != b.Updated() {
 			return false
 		}
 	}
@@ -50,12 +57,12 @@ func (a *Member) Equal(b *Member) bool {
 }
 
 type MemberService interface {
-	CreateMember(ctx context.Context, p CreateMemberParams) (Member, error)
+	CreateMember(ctx context.Context, p CreateMemberParams) (*types.Member, error)
 	AuthenticateMember(ctx context.Context, p AuthenticateMemberParams) error
 	UpdateMember(ctx context.Context, p UpdateMemberParams) error
 	RemoveMember(ctx context.Context, p RemoveMemberParams) error
-	ListMembers(ctx context.Context, p ListMembersParams) ([]Member, error)
-	FindMemberByUsername(ctx context.Context, p FindMemberByUsernameParams) (Member, error)
+	ListMembers(ctx context.Context, p ListMembersParams) ([]*types.Member, error)
+	FindMemberByUsername(ctx context.Context, p FindMemberByUsernameParams) (*types.Member, error)
 }
 
 type CreateMemberParams struct {

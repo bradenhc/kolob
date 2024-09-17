@@ -11,6 +11,7 @@ import (
 
 	"github.com/bradenhc/kolob/internal/crypto"
 	"github.com/bradenhc/kolob/internal/model"
+	"github.com/bradenhc/kolob/internal/types"
 )
 
 type MemberService struct {
@@ -23,7 +24,7 @@ func NewMemberService(db *sql.DB) MemberService {
 
 func (s *MemberService) CreateMember(
 	ctx context.Context, p model.CreateMemberParams,
-) (model.Member, error) {
+) (*types.Member, error) {
 	// Create the new member
 	m, err := model.NewMember(p.Username, p.Name)
 	if err != nil {
@@ -37,25 +38,22 @@ func (s *MemberService) CreateMember(
 	// Hash the password so we can use it for authentication
 	phash, err := crypto.HashPassword(p.Password)
 	if err != nil {
-		var m model.Member
-		return m, fmt.Errorf("failed to hash member password: %v", err)
+		return nil, fmt.Errorf("failed to hash member password: %v", err)
 	}
 
 	// Format the datetimes as RFC3339-compliant strings for storage in the DB
-	created := m.CreatedAt.Format(time.RFC3339)
-	updated := m.UpdatedAt.Format(time.RFC3339)
+	created := time.UnixMilli(m.Created()).Format(time.RFC3339)
+	updated := time.UnixMilli(m.Updated()).Format(time.RFC3339)
 
 	// Encrypt the member data prior to storing it in the DB
-	eda, err := NewEncryptedDataAccessor[model.Member](ctx, s.db, "member", p.PassKey)
+	eda, err := NewEncryptedDataAccessor[*types.Member](ctx, s.db, "member", p.PassKey)
 	if err != nil {
-		var m model.Member
-		return m, fmt.Errorf("failed to create encrypted data accessor: %v", err)
+		return nil, fmt.Errorf("failed to create encrypted data accessor: %v", err)
 	}
 
 	data, err := eda.Encrypt(m)
 	if err != nil {
-		var m model.Member
-		return m, fmt.Errorf("failed to encrypt member data: %v", err)
+		return nil, fmt.Errorf("failed to encrypt member data: %v", err)
 	}
 
 	// Store the new member in the DB
@@ -65,8 +63,7 @@ func (s *MemberService) CreateMember(
 		m.Id, created, updated, uhash[:], phash, data,
 	)
 	if err != nil {
-		var m model.Member
-		return m, fmt.Errorf("failed to store new member in database: %v", err)
+		return nil, fmt.Errorf("failed to store new member in database: %v", err)
 	}
 
 	return m, nil

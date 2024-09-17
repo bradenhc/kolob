@@ -20,61 +20,45 @@ type QueryExecutor interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
-type EncryptedDataAccessor[V any] struct {
+type EncryptedDataAccessor struct {
 	table string
-	agent crypto.Agent[V]
+	dkey  crypto.Key
 }
 
-func NewEncryptedDataAccessor[V any](
-	ctx context.Context, db *sql.DB, table string, pkey crypto.Key,
-) (EncryptedDataAccessor[V], error) {
-	var eda EncryptedDataAccessor[V]
-
-	gs := NewGroupService(db)
-	dkey, err := gs.GetGroupDataKey(ctx, model.GetGroupDataKeyParams{PassKey: pkey})
-	if err != nil {
-		return eda, fmt.Errorf("failed to get group data key for decryption: %v", err)
+func NewEncryptedDataAccessor(table string, dkey crypto.Key) EncryptedDataAccessor {
+	return EncryptedDataAccessor{
+		table,
+		dkey,
 	}
-
-	agent := crypto.NewAgent[V](dkey)
-
-	eda = EncryptedDataAccessor[V]{
-		table: table,
-		agent: agent,
-	}
-
-	return eda, nil
 }
 
-func (e *EncryptedDataAccessor[V]) Get(
+func (e *EncryptedDataAccessor) Get(
 	ctx context.Context, db QueryExecutor, id model.Uuid,
-) (V, error) {
+) ([]byte, error) {
 	var data []byte
 	query := fmt.Sprintf("SELECT data FROM [%s] WHERE id = ?", e.table)
 	err := db.QueryRowContext(ctx, query, id).Scan(&data)
 	if err != nil {
-		var v V
-		return v, fmt.Errorf("failed to get %s data from database: %v", e.table, err)
+		return nil, fmt.Errorf("failed to get %s data from database: %v", e.table, err)
 	}
 
 	return e.Decrypt(data)
 }
 
-func (e *EncryptedDataAccessor[V]) GetByIdHash(
+func (e *EncryptedDataAccessor) GetByIdHash(
 	ctx context.Context, db QueryExecutor, h crypto.DataHash,
-) (V, error) {
+) ([]byte, error) {
 	var d []byte
 	query := fmt.Sprintf("SELECT data FROM [%s] WHERE idhash = ?", e.table)
 	err := db.QueryRowContext(ctx, query, h[:]).Scan(&d)
 	if err != nil {
-		var v V
-		return v, fmt.Errorf("failed to get %s data from database by ID hash: %v", e.table, err)
+		return nil, fmt.Errorf("failed to get %s data from database by ID hash: %v", e.table, err)
 	}
 
 	return e.Decrypt(d)
 }
 
-func (e *EncryptedDataAccessor[V]) GetList(ctx context.Context, db QueryExecutor) ([]V, error) {
+func (e *EncryptedDataAccessor) GetList(ctx context.Context, db QueryExecutor) ([][]byte, error) {
 	query := fmt.Sprintf("SELECT data FROM [%s]", e.table)
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
@@ -85,9 +69,9 @@ func (e *EncryptedDataAccessor[V]) GetList(ctx context.Context, db QueryExecutor
 	return e.decryptList(rows)
 }
 
-func (e *EncryptedDataAccessor[V]) GetListFilt(
+func (e *EncryptedDataAccessor) GetListFilt(
 	ctx context.Context, db QueryExecutor, pred map[string]any,
-) ([]V, error) {
+) ([][]byte, error) {
 	where := make([]string, len(pred))
 	parms := make([]any, len(pred))
 	i := 0
@@ -106,8 +90,8 @@ func (e *EncryptedDataAccessor[V]) GetListFilt(
 	return e.decryptList(rows)
 }
 
-func (e *EncryptedDataAccessor[V]) Set(
-	ctx context.Context, db QueryExecutor, id model.Uuid, v V,
+func (e *EncryptedDataAccessor) Set(
+	ctx context.Context, db QueryExecutor, id model.Uuid, v []byte,
 ) error {
 	data, err := e.Encrypt(v)
 	if err != nil {
@@ -125,8 +109,8 @@ func (e *EncryptedDataAccessor[V]) Set(
 	return nil
 }
 
-func (e *EncryptedDataAccessor[V]) SetWithIdHash(
-	ctx context.Context, db QueryExecutor, id model.Uuid, h crypto.DataHash, v V,
+func (e *EncryptedDataAccessor) SetWithIdHash(
+	ctx context.Context, db QueryExecutor, id model.Uuid, h crypto.DataHash, v []byte,
 ) error {
 	data, err := e.Encrypt(v)
 	if err != nil {
@@ -144,16 +128,16 @@ func (e *EncryptedDataAccessor[V]) SetWithIdHash(
 	return nil
 }
 
-func (e *EncryptedDataAccessor[V]) Encrypt(v V) ([]byte, error) {
-	return e.agent.Encrypt(v)
+func (e *EncryptedDataAccessor) Encrypt(d []byte) ([]byte, error) {
+	return crypto.Decrypt(e.dkey, d)
 }
 
-func (e *EncryptedDataAccessor[V]) Decrypt(d []byte) (V, error) {
-	return e.agent.Decrypt(d)
+func (e *EncryptedDataAccessor) Decrypt(d []byte) ([]byte, error) {
+	return crypto.Decrypt(e.dkey, d)
 }
 
-func (e *EncryptedDataAccessor[V]) decryptList(rows *sql.Rows) ([]V, error) {
-	vs := make([]V, 0)
+func (e *EncryptedDataAccessor) decryptList(rows *sql.Rows) ([][]byte, error) {
+	vs := make([][]byte, 0)
 	for rows.Next() {
 		var data []byte
 		if err := rows.Scan(&data); err != nil {

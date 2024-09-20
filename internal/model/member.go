@@ -4,17 +4,14 @@
 package model
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"time"
 
-	"github.com/bradenhc/kolob/internal/crypto"
-	"github.com/bradenhc/kolob/internal/types"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-func NewMember(username, name string) (*types.Member, error) {
+func NewMember(username, name string) (*Member, error) {
 	uuid, err := NewUuid()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new member: %v", err)
@@ -28,21 +25,54 @@ func NewMember(username, name string) (*types.Member, error) {
 
 	now := time.Now()
 
-	types.MemberStart(builder)
-	types.MemberAddId(builder, mi)
-	types.MemberAddUname(builder, mu)
-	types.MemberAddName(builder, mn)
-	types.MemberAddCreated(builder, now.UnixMilli())
-	types.MemberAddUpdated(builder, now.UnixMilli())
+	MemberStart(builder)
+	MemberAddId(builder, mi)
+	MemberAddUname(builder, mu)
+	MemberAddName(builder, mn)
+	MemberAddCreated(builder, now.UnixMilli())
+	MemberAddUpdated(builder, now.UnixMilli())
 
-	m := types.MemberEnd(builder)
+	m := MemberEnd(builder)
 
 	builder.Finish(m)
 
-	return types.GetRootAsMember(builder.FinishedBytes(), 0), nil
+	return GetRootAsMember(builder.FinishedBytes(), 0), nil
 }
 
-func MemberEqual(a, b *types.Member) bool {
+func CloneMemberWithUpdates(prev *Member, uname, name []byte) *Member {
+	builder := flatbuffers.NewBuilder(64)
+	mi := builder.CreateByteString(prev.Id())
+
+	var mu flatbuffers.UOffsetT
+	if uname != nil {
+		mu = builder.CreateByteString(uname)
+	} else {
+		mu = builder.CreateByteString(prev.Uname())
+	}
+
+	var mn flatbuffers.UOffsetT
+	if name != nil {
+		mn = builder.CreateByteString(name)
+	} else {
+		mn = builder.CreateByteString(prev.Name())
+	}
+
+	updated := time.Now().UnixMilli()
+
+	MemberStart(builder)
+	MemberAddId(builder, mi)
+	MemberAddUname(builder, mu)
+	MemberAddName(builder, mn)
+	MemberAddCreated(builder, prev.Created())
+	MemberAddUpdated(builder, updated)
+
+	m := MemberEnd(builder)
+	builder.Finish(m)
+
+	return GetRootAsMember(builder.FinishedBytes(), 0)
+}
+
+func MemberEqual(a, b *Member) bool {
 	if a != b {
 		if a == nil || b == nil ||
 			!slices.Equal(a.Id(), b.Id()) ||
@@ -54,45 +84,4 @@ func MemberEqual(a, b *types.Member) bool {
 		}
 	}
 	return true
-}
-
-type MemberService interface {
-	CreateMember(ctx context.Context, p CreateMemberParams) (*types.Member, error)
-	AuthenticateMember(ctx context.Context, p AuthenticateMemberParams) error
-	UpdateMember(ctx context.Context, p UpdateMemberParams) error
-	RemoveMember(ctx context.Context, p RemoveMemberParams) error
-	ListMembers(ctx context.Context, p ListMembersParams) ([]*types.Member, error)
-	FindMemberByUsername(ctx context.Context, p FindMemberByUsernameParams) (*types.Member, error)
-}
-
-type CreateMemberParams struct {
-	Username string          `json:"username"`
-	Name     string          `json:"name"`
-	Password crypto.Password `json:"pass"`
-	PassKey  crypto.Key      `json:"-"`
-}
-
-type AuthenticateMemberParams struct {
-	Username string          `json:"username"`
-	Password crypto.Password `json:"password"`
-}
-
-type UpdateMemberParams struct {
-	Id       Uuid       `json:"id"`
-	Username *string    `json:"username"`
-	Name     *string    `json:"name"`
-	PassKey  crypto.Key `json:"-"`
-}
-
-type RemoveMemberParams struct {
-	Id Uuid `json:"id"`
-}
-
-type ListMembersParams struct {
-	PassKey crypto.Key `json:"-"`
-}
-
-type FindMemberByUsernameParams struct {
-	Username string     `json:"username"`
-	PassKey  crypto.Key `json:"-"`
 }

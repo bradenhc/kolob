@@ -1,0 +1,36 @@
+// ---------------------------------------------------------------------------------------------- //
+// -- Copyright (c) 2024 Braden Hitchcock - MIT License (https://opensource.org/licenses/MIT)  -- //
+// ---------------------------------------------------------------------------------------------- //
+
+namespace internal.services;
+
+table MemberCreateRequest {
+    username    : string;
+    name        : string;
+    password    : string;
+}
+
+table MemberAuthenticateRequest {
+    username : string;
+    password : string;
+}
+
+table MemberChangePasswordRequest {
+    id              : string;
+    old_password    : string;
+    new_password    : string;
+}
+
+table MemberUpdateRequest {
+    id          : string;
+    username    : string;
+    name        : string;
+}
+
+table MemberRemoveRequest {
+    id : string;
+}
+
+table MemberFindByUsernameRequest {
+    username : string;
+}

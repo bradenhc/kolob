@@ -51,24 +51,6 @@ func CreateTables(db *sql.DB) error {
 	}
 	defer tx.Rollback()
 
-	slog.Info("Setting up table: member")
-	_, err = tx.Exec(`
-		CREATE TABLE IF NOT EXISTS member (
-			id 			TEXT,
-			created		INTEGER,
-			updated		INTEGER,
-			idhash		BLOB,
-			phash		BLOB,
-			data 		BLOB,
-			
-			PRIMARY KEY (id),
-			UNIQUE (idhash)
-		)
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to create member table: %v", err)
-	}
-
 	slog.Info("Setting up table: conversation")
 	_, err = tx.Exec(`
 		CREATE TABLE IF NOT EXISTS conversation (

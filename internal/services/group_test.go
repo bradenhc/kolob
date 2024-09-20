@@ -5,6 +5,7 @@ package services_test
 
 import (
 	"context"
+	"database/sql"
 	"path"
 	"slices"
 	"testing"
@@ -18,7 +19,6 @@ import (
 
 func TestGroupTable(t *testing.T) {
 	// Setup the test
-	//
 	t.Parallel()
 	tempdir := t.TempDir()
 	dbpath := path.Join(tempdir, "group-table-test.db")
@@ -28,6 +28,28 @@ func TestGroupTable(t *testing.T) {
 		t.Fatalf("failed to open database: %v", err)
 	}
 
+	// Setup the store and create the service
+	store := doTestGroupCreateStore(t, db)
+	gs := services.NewGroupService(store)
+
+	// Create a group and test
+	ctx := context.Background()
+	a := doTestGroupCreate(t, ctx, gs)
+
+	// Authenticate to get the symmetric key
+	dkey := doTestGroupAuth(t, ctx, gs)
+
+	// Access encrypted group information
+	b := doTestGroupGetInfo(t, ctx, gs, dkey, a)
+
+	// Update group information
+	c := doTestGroupUpdate(t, ctx, gs, dkey, b)
+
+	// Change the group password and make sure we can still authenticate and access the group
+	doTestGroupChangePassword(t, ctx, gs, dkey, c)
+}
+
+func doTestGroupCreateStore(t *testing.T, db *sql.DB) sqlite.GroupStore {
 	// Create our group store
 	//
 	store, err := sqlite.NewGroupStore(db)
@@ -35,18 +57,16 @@ func TestGroupTable(t *testing.T) {
 		t.Fatalf("failed to create group store: %v", err)
 	}
 
-	// Create the group service we will test
-	//
-	gs := services.NewGroupService(store)
+	return store
+}
 
-	// Create and store a group
-	//
+func doTestGroupCreate(t *testing.T, ctx context.Context, gs services.GroupService) *model.Group {
 	builder := flatbuffers.NewBuilder(64)
 	gid := "TestGroup123"
-	offsetGid := builder.CreateString("TestGroup123")
+	offsetGid := builder.CreateString(gid)
 	offsetName := builder.CreateString("Test Group")
 	offsetDesc := builder.CreateString("A test group")
-	pw, _ := crypto.NewPassword("password")
+	pw, _ := crypto.NewPassword("Password12345!")
 	offsetPass := builder.CreateString(string(pw))
 	services.GroupInitRequestStart(builder)
 	services.GroupInitRequestAddGroupId(builder, offsetGid)
@@ -59,31 +79,32 @@ func TestGroupTable(t *testing.T) {
 
 	reqCreate := services.GetRootAsGroupInitRequest(builder.FinishedBytes(), 0)
 
-	ctx := context.Background()
-	a, err := gs.Create(ctx, reqCreate)
+	group, err := gs.Create(ctx, reqCreate)
 	if err != nil {
 		t.Fatalf("failed to create group: %v", err)
 	}
 
-	if !slices.Equal(a.Gid(), reqCreate.GroupId()) {
-		t.Errorf("%s != %s", string(a.Gid()), string(reqCreate.GroupId()))
+	if !slices.Equal(group.Gid(), reqCreate.GroupId()) {
+		t.Errorf("%s != %s", string(group.Gid()), string(reqCreate.GroupId()))
 	}
-	if !slices.Equal(a.Name(), reqCreate.Name()) {
-		t.Errorf("%s != %s", string(a.Name()), string(reqCreate.Name()))
+	if !slices.Equal(group.Name(), reqCreate.Name()) {
+		t.Errorf("%s != %s", string(group.Name()), string(reqCreate.Name()))
 	}
-	if !slices.Equal(a.Desc(), reqCreate.Description()) {
-		t.Errorf("%s != %s", string(a.Desc()), string(reqCreate.Description()))
+	if !slices.Equal(group.Desc(), reqCreate.Description()) {
+		t.Errorf("%s != %s", string(group.Desc()), string(reqCreate.Description()))
 	}
 
-	// Authenticate with the group
-	//
-	builder = flatbuffers.NewBuilder(64)
-	offsetGid = builder.CreateString(gid)
-	offsetPass = builder.CreateString(string(pw))
+	return group
+}
+
+func doTestGroupAuth(t *testing.T, ctx context.Context, gs services.GroupService) crypto.Key {
+	builder := flatbuffers.NewBuilder(64)
+	offsetGid := builder.CreateString("TestGroup123")
+	offsetPass := builder.CreateString("Password12345!")
 	services.GroupAuthenticateRequestStart(builder)
 	services.GroupAuthenticateRequestAddGroupId(builder, offsetGid)
 	services.GroupAuthenticateRequestAddPassword(builder, offsetPass)
-	r = services.GroupAuthenticateRequestEnd(builder)
+	r := services.GroupAuthenticateRequestEnd(builder)
 	builder.Finish(r)
 
 	reqAuth := services.GetRootAsGroupAuthenticateRequest(builder.FinishedBytes(), 0)
@@ -92,8 +113,12 @@ func TestGroupTable(t *testing.T) {
 		t.Fatalf("failed to auth group: %v", err)
 	}
 
-	// Access encrypted group information
-	//
+	return dkey
+}
+
+func doTestGroupGetInfo(
+	t *testing.T, ctx context.Context, gs services.GroupService, dkey crypto.Key, a *model.Group,
+) *model.Group {
 	b, err := gs.GetInfo(ctx, dkey)
 	if err != nil {
 		t.Fatalf("failed to get group info: %v", err)
@@ -102,20 +127,24 @@ func TestGroupTable(t *testing.T) {
 		t.Errorf("%+v != %+v", a, b)
 	}
 
-	// Update group information
-	//
-	builder = flatbuffers.NewBuilder(64)
+	return b
+}
+
+func doTestGroupUpdate(
+	t *testing.T, ctx context.Context, gs services.GroupService, dkey crypto.Key, b *model.Group,
+) *model.Group {
+	builder := flatbuffers.NewBuilder(64)
 	ugid := "TestGroup456"
-	offsetGid = builder.CreateString(ugid)
+	offsetGid := builder.CreateString(ugid)
 	uname := "Test Group Updated"
-	offsetName = builder.CreateString(uname)
+	offsetName := builder.CreateString(uname)
 	udesc := "Updated test group description"
-	offsetDesc = builder.CreateString(udesc)
+	offsetDesc := builder.CreateString(udesc)
 	services.GroupUpdateRequestStart(builder)
 	services.GroupUpdateRequestAddGroupId(builder, offsetGid)
 	services.GroupUpdateRequestAddName(builder, offsetName)
 	services.GroupUpdateRequestAddDescription(builder, offsetDesc)
-	r = services.GroupUpdateRequestEnd(builder)
+	r := services.GroupUpdateRequestEnd(builder)
 	builder.Finish(r)
 
 	reqUpdate := services.GetRootAsGroupUpdateRequest(builder.FinishedBytes(), 0)
@@ -135,37 +164,41 @@ func TestGroupTable(t *testing.T) {
 		t.Errorf("%v != %s", c.Name(), uname)
 	}
 	if string(c.Desc()) != udesc {
-		t.Errorf("%v != %s", a.Desc(), udesc)
+		t.Errorf("%v != %s", b.Desc(), udesc)
 	}
 
-	// Change the group password and make sure we can still authenticate and access the group
-	//
-	builder = flatbuffers.NewBuilder(64)
-	offsetOldPass := builder.CreateString(string(pw))
-	newp, _ := crypto.NewPassword("newpassword")
+	return c
+}
+
+func doTestGroupChangePassword(
+	t *testing.T, ctx context.Context, gs services.GroupService, dkey crypto.Key, c *model.Group,
+) {
+	builder := flatbuffers.NewBuilder(64)
+	offsetOldPass := builder.CreateString("Password12345!")
+	newp, _ := crypto.NewPassword("UpdatedPassword123456!")
 	offsetNewPass := builder.CreateString(string(newp))
 	services.GroupChangePasswordRequestStart(builder)
 	services.GroupChangePasswordRequestAddOldPassword(builder, offsetOldPass)
 	services.GroupChangePasswordRequestAddNewPassword(builder, offsetNewPass)
-	r = services.GroupChangePasswordRequestEnd(builder)
+	r := services.GroupChangePasswordRequestEnd(builder)
 	builder.Finish(r)
 
 	reqChangePass := services.GetRootAsGroupChangePasswordRequest(builder.FinishedBytes(), 0)
-	err = gs.ChangePassword(ctx, reqChangePass, dkey)
+	err := gs.ChangePassword(ctx, reqChangePass, dkey)
 	if err != nil {
 		t.Fatalf("failed to update password: %v", err)
 	}
 
 	builder = flatbuffers.NewBuilder(64)
-	offsetGid = builder.CreateString(ugid)
-	offsetPass = builder.CreateString(string(newp))
+	offsetGid := builder.CreateString("TestGroup123")
+	offsetPass := builder.CreateString(string(newp))
 	services.GroupAuthenticateRequestStart(builder)
 	services.GroupAuthenticateRequestAddGroupId(builder, offsetGid)
 	services.GroupAuthenticateRequestAddPassword(builder, offsetPass)
 	r = services.GroupAuthenticateRequestEnd(builder)
 	builder.Finish(r)
 
-	reqAuth = services.GetRootAsGroupAuthenticateRequest(builder.FinishedBytes(), 0)
+	reqAuth := services.GetRootAsGroupAuthenticateRequest(builder.FinishedBytes(), 0)
 	dkey, err = gs.Authenticate(ctx, reqAuth)
 	if err != nil {
 		t.Fatalf("failed to auth group: %v", err)

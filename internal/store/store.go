@@ -44,3 +44,17 @@ type MemberMetadata struct {
 	CreatedAt    int64
 	UpdatedAt    int64
 }
+
+type ConversationStore interface {
+	AddConversationData(ctx context.Context, m ConversationMetadata, d []byte) error
+	GetConversationData(ctx context.Context, id model.Uuid) (ConversationMetadata, []byte, error)
+	UpdateConversationData(ctx context.Context, m ConversationMetadata, d []byte) error
+	RemoveConversationData(ctx context.Context, id model.Uuid) error
+	ListConversationData(ctx context.Context) ([][]byte, error)
+}
+
+type ConversationMetadata struct {
+	Id        model.Uuid
+	CreatedAt int64
+	UpdatedAt int64
+}

@@ -4,96 +4,127 @@
 package model
 
 import (
-	"context"
 	"fmt"
+	"slices"
 	"time"
 
-	"github.com/bradenhc/kolob/internal/crypto"
+	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-type Conversation struct {
-	Id         Uuid      `json:"id"`
-	Name       string    `json:"name"`
-	Moderators []Uuid    `json:"moderators"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
-}
-
-func NewConversation(name string, moderator Uuid) (Conversation, error) {
-	var c Conversation
-
+func NewConversation(name, desc string, mods []Uuid) (*Conversation, error) {
 	uuid, err := NewUuid()
 	if err != nil {
-		return c, fmt.Errorf("failed to create conversation: %v", err)
+		return nil, fmt.Errorf("failed to create conversation: %v", err)
 	}
 
-	now := time.Now()
+	now := time.Now().UnixMilli()
 
-	c.Id = uuid
-	c.Name = name
-	c.Moderators = []Uuid{moderator}
-	c.CreatedAt = now
-	c.UpdatedAt = now
+	builder := flatbuffers.NewBuilder(1024)
 
-	return c, nil
+	idOffsets := builder.CreateString(string(uuid))
+	nameOffset := builder.CreateString(name)
+	descOffset := builder.CreateString(desc)
+	modsElsOffsets := make([]flatbuffers.UOffsetT, len(mods))
+	for _, m := range mods {
+		modsElsOffsets = append(modsElsOffsets, builder.CreateString(string(m)))
+	}
+	ConversationStartModsVector(builder, len(mods))
+	for _, m := range modsElsOffsets {
+		builder.PrependUOffsetT(m)
+	}
+	modsOffset := builder.EndVector(len(modsElsOffsets))
+
+	ConversationStart(builder)
+	ConversationAddId(builder, idOffsets)
+	ConversationAddName(builder, nameOffset)
+	ConversationAddDesc(builder, descOffset)
+	ConversationAddMods(builder, modsOffset)
+	ConversationAddCreated(builder, now)
+	ConversationAddUpdated(builder, now)
+	convOffset := ConversationEnd(builder)
+
+	builder.Finish(convOffset)
+
+	return GetRootAsConversation(builder.FinishedBytes(), 0), nil
 }
 
-func (a *Conversation) Equal(b *Conversation) bool {
-	if a != b {
-		if a == nil || b == nil ||
-			a.Id != b.Id ||
-			a.Name != b.Name ||
-			!a.CreatedAt.Equal(b.CreatedAt) ||
-			!a.UpdatedAt.Equal(b.UpdatedAt) {
-			return false
+func CloneConversationWithUpdates(prev *Conversation, name, desc []byte, mods [][]byte) *Conversation {
+	now := time.Now().UnixMilli()
+
+	builder := flatbuffers.NewBuilder(1024)
+
+	idOffsets := builder.CreateByteString(prev.Id())
+
+	var nameOffset flatbuffers.UOffsetT
+	if name != nil {
+		nameOffset = builder.CreateByteString(name)
+	} else {
+		nameOffset = builder.CreateByteString(prev.Name())
+	}
+
+	var descOffset flatbuffers.UOffsetT
+	if desc != nil {
+		descOffset = builder.CreateByteString(desc)
+	} else {
+		descOffset = builder.CreateByteString(prev.Desc())
+	}
+
+	modsElsOffsets := make([]flatbuffers.UOffsetT, 0)
+	if mods != nil {
+		for _, m := range mods {
+			modsElsOffsets = append(modsElsOffsets, builder.CreateString(string(m)))
+		}
+	} else {
+		for i := range prev.ModsLength() {
+			modsElsOffsets = append(modsElsOffsets, builder.CreateByteString(prev.Mods(i)))
 		}
 	}
-	return true
+
+	ConversationStartModsVector(builder, len(modsElsOffsets))
+	for _, m := range modsElsOffsets {
+		builder.PrependUOffsetT(m)
+	}
+	modsOffset := builder.EndVector(len(modsElsOffsets))
+
+	ConversationStart(builder)
+	ConversationAddId(builder, idOffsets)
+	ConversationAddName(builder, nameOffset)
+	ConversationAddDesc(builder, descOffset)
+	ConversationAddMods(builder, modsOffset)
+	ConversationAddCreated(builder, prev.Created())
+	ConversationAddUpdated(builder, now)
+	convOffset := ConversationEnd(builder)
+
+	builder.Finish(convOffset)
+
+	return GetRootAsConversation(builder.FinishedBytes(), 0)
 }
 
-type ConversationService interface {
-	CreateConversation(ctx context.Context, p CreateConversationParams) (Conversation, error)
-	UpdateConversation(ctx context.Context, p UpdateConversationParams) error
-	RemoveConversation(ctx context.Context, p RemoveConversationParams) error
-	ListConversations(ctx context.Context, p ListConversationsParams) ([]Conversation, error)
-	FindConversationById(ctx context.Context, p FindConversationByIdParams) (Conversation, error)
-	AddConversationMods(ctx context.Context, p AddConversationModsParams) error
-	ListConversationMods(ctx context.Context, p ListConversationModsParams) ([]Uuid, error)
-}
+func ConversationEqual(a, b *Conversation) bool {
+	if a == b {
+		return true
+	}
 
-type CreateConversationParams struct {
-	Name      string     `json:"name"`
-	Moderator Uuid       `json:"moderator"`
-	PassKey   crypto.Key `json:"-"`
-}
+	if slices.Equal(a.Id(), b.Id()) &&
+		slices.Equal(a.Name(), b.Name()) &&
+		slices.Equal(a.Desc(), b.Desc()) &&
+		a.Created() != b.Created() &&
+		a.Updated() != b.Updated() &&
+		a.ModsLength() == b.ModsLength() {
+		// Make sure all the mods are equal. Order is not important.
+		amods := make(map[string]bool, a.ModsLength())
+		for i := range a.ModsLength() {
+			amods[string(a.Mods(i))] = true
+		}
+		for i := range b.ModsLength() {
+			_, ok := amods[string(b.Mods(i))]
+			if !ok {
+				return false
+			}
+		}
 
-type UpdateConversationParams struct {
-	Id      Uuid       `json:"id"`
-	Name    *string    `json:"name"`
-	PassKey crypto.Key `json:"-"`
-}
+		return true
+	}
 
-type RemoveConversationParams struct {
-	Id Uuid `json:"id"`
-}
-
-type ListConversationsParams struct {
-	Pattern *string    `json:"pattern"`
-	PassKey crypto.Key `json:"-"`
-}
-
-type FindConversationByIdParams struct {
-	Id      Uuid       `json:"id"`
-	PassKey crypto.Key `json:"-"`
-}
-
-type AddConversationModsParams struct {
-	Id         Uuid       `json:"id"`
-	Moderators []Uuid     `json:"moderators"`
-	PassKey    crypto.Key `json:"-"`
-}
-
-type ListConversationModsParams struct {
-	Id      Uuid       `json:"id"`
-	PassKey crypto.Key `json:"-"`
+	return false
 }

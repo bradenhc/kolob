@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/bradenhc/kolob/internal/fail"
 	_ "modernc.org/sqlite"
 )
 
@@ -23,9 +22,9 @@ func Open(path string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	err = CreateTables(db)
+	_, err = db.Exec("PRAGMA foreign_keys = ON")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tables: %v", err)
+		return nil, fmt.Errorf("failed to enable foreign keys", err)
 	}
 
 	return db, nil
@@ -40,31 +39,11 @@ func Open(path string) (*sql.DB, error) {
 // directly; however, it is exported in case you have your own database connection you want to
 // setup tables for.
 func CreateTables(db *sql.DB) error {
-	_, err := db.Exec("PRAGMA foreign_keys = ON")
-	if err != nil {
-		return fail.Format("failed to enable foreign keys", err)
-	}
-
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to open transaction to create tabels: %v", err)
 	}
 	defer tx.Rollback()
-
-	slog.Info("Setting up table: conversation")
-	_, err = tx.Exec(`
-		CREATE TABLE IF NOT EXISTS conversation (
-			id			TEXT,
-			created		INTEGER,
-			updated		INTEGER,
-			data		BLOB,
-
-			PRIMARY KEY (id)
-		)
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to create conversation table: %v", err)
-	}
 
 	slog.Info("Setting up table: message")
 	_, err = tx.Exec(`
@@ -83,21 +62,6 @@ func CreateTables(db *sql.DB) error {
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to create message table: %v", err)
-	}
-
-	slog.Info("Setting up table: moderates")
-	_, err = tx.Exec(`
-		CREATE TABLE IF NOT EXISTS moderates (
-			mid TEXT,
-			cid TEXT,
-
-			PRIMARY KEY(mid, cid),
-			FOREIGN KEY (mid) REFERENCES member(id) 	  ON DELETE CASCADE,
-			FOREIGN KEY (cid) REFERENCES conversation(id) ON DELETE CASCADE
-		)
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to create moderates table: %v", err)
 	}
 
 	err = tx.Commit()

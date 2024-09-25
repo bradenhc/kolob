@@ -24,6 +24,7 @@ table Member {
 table Conversation {
     id      : string;
     name    : string;
+    desc    : string;
     mods    : [string];
     created : int64;
     updated : int64;

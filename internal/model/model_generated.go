@@ -276,8 +276,16 @@ func (rcv *Conversation) Name() []byte {
 	return nil
 }
 
-func (rcv *Conversation) Mods(j int) []byte {
+func (rcv *Conversation) Desc() []byte {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *Conversation) Mods(j int) []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
 	if o != 0 {
 		a := rcv._tab.Vector(o)
 		return rcv._tab.ByteVector(a + flatbuffers.UOffsetT(j*4))
@@ -286,7 +294,7 @@ func (rcv *Conversation) Mods(j int) []byte {
 }
 
 func (rcv *Conversation) ModsLength() int {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
 	if o != 0 {
 		return rcv._tab.VectorLen(o)
 	}
@@ -294,18 +302,6 @@ func (rcv *Conversation) ModsLength() int {
 }
 
 func (rcv *Conversation) Created() int64 {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
-	if o != 0 {
-		return rcv._tab.GetInt64(o + rcv._tab.Pos)
-	}
-	return 0
-}
-
-func (rcv *Conversation) MutateCreated(n int64) bool {
-	return rcv._tab.MutateInt64Slot(10, n)
-}
-
-func (rcv *Conversation) Updated() int64 {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
 	if o != 0 {
 		return rcv._tab.GetInt64(o + rcv._tab.Pos)
@@ -313,12 +309,24 @@ func (rcv *Conversation) Updated() int64 {
 	return 0
 }
 
-func (rcv *Conversation) MutateUpdated(n int64) bool {
+func (rcv *Conversation) MutateCreated(n int64) bool {
 	return rcv._tab.MutateInt64Slot(12, n)
 }
 
+func (rcv *Conversation) Updated() int64 {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
+	if o != 0 {
+		return rcv._tab.GetInt64(o + rcv._tab.Pos)
+	}
+	return 0
+}
+
+func (rcv *Conversation) MutateUpdated(n int64) bool {
+	return rcv._tab.MutateInt64Slot(14, n)
+}
+
 func ConversationStart(builder *flatbuffers.Builder) {
-	builder.StartObject(5)
+	builder.StartObject(6)
 }
 func ConversationAddId(builder *flatbuffers.Builder, id flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(id), 0)
@@ -326,17 +334,20 @@ func ConversationAddId(builder *flatbuffers.Builder, id flatbuffers.UOffsetT) {
 func ConversationAddName(builder *flatbuffers.Builder, name flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(name), 0)
 }
+func ConversationAddDesc(builder *flatbuffers.Builder, desc flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(desc), 0)
+}
 func ConversationAddMods(builder *flatbuffers.Builder, mods flatbuffers.UOffsetT) {
-	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(mods), 0)
+	builder.PrependUOffsetTSlot(3, flatbuffers.UOffsetT(mods), 0)
 }
 func ConversationStartModsVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
 	return builder.StartVector(4, numElems, 4)
 }
 func ConversationAddCreated(builder *flatbuffers.Builder, created int64) {
-	builder.PrependInt64Slot(3, created, 0)
+	builder.PrependInt64Slot(4, created, 0)
 }
 func ConversationAddUpdated(builder *flatbuffers.Builder, updated int64) {
-	builder.PrependInt64Slot(4, updated, 0)
+	builder.PrependInt64Slot(5, updated, 0)
 }
 func ConversationEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

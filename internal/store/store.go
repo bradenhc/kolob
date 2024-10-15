@@ -58,3 +58,25 @@ type ConversationMetadata struct {
 	CreatedAt int64
 	UpdatedAt int64
 }
+
+type MessageStore interface {
+	AddMessageData(ctx context.Context, m MessageMetadata, d []byte) error
+	GetMessageData(ctx context.Context, id model.Uuid) (MessageMetadata, []byte, error)
+	UpdateMessageData(ctx context.Context, m MessageMetadata, d []byte) error
+	RemoveMessageData(ctx context.Context, id model.Uuid) error
+	ListMessageData(ctx context.Context, cid model.Uuid, q ListMessageDataQuery) ([][]byte, error)
+}
+
+type MessageMetadata struct {
+	Id           model.Uuid
+	Author       model.Uuid
+	Conversation model.Uuid
+	CreatedAt    int64
+	UpdatedAt    int64
+}
+
+type ListMessageDataQuery struct {
+	Author        *model.Uuid
+	CreatedAfter  *int64
+	CreatedBefore *int64
+}

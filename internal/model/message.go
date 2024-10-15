@@ -4,88 +4,82 @@
 package model
 
 import (
-	"context"
 	"fmt"
+	"slices"
 	"time"
 
-	"github.com/bradenhc/kolob/internal/crypto"
+	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-type Message struct {
-	Id        Uuid      `json:"id"`
-	Author    Uuid      `json:"author"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-func NewMessage(author Uuid, content string) (Message, error) {
-	var m Message
-
+func NewMessage(author, convo Uuid, content string) (*Message, error) {
 	uuid, err := NewUuid()
 	if err != nil {
-		return m, fmt.Errorf("failed to create new message: %v", err)
+		return nil, fmt.Errorf("failed to create new message: %v", err)
 	}
 
-	now := time.Now()
+	now := time.Now().UnixMilli()
 
-	m.Id = uuid
-	m.Author = author
-	m.Content = content
-	m.CreatedAt = now
-	m.UpdatedAt = now
+	builder := flatbuffers.NewBuilder(1024)
+	idOffset := builder.CreateString(string(uuid))
+	authorOffset := builder.CreateString(string(author))
+	convoOffset := builder.CreateString(string(convo))
+	contentOffset := builder.CreateString(content)
 
-	return m, nil
+	MessageStart(builder)
+	MessageAddId(builder, idOffset)
+	MessageAddAuthor(builder, authorOffset)
+	MessageAddConversation(builder, convoOffset)
+	MessageAddContent(builder, contentOffset)
+	MessageAddCreated(builder, now)
+	MessageAddUpdated(builder, now)
+
+	msgOffset := MessageEnd(builder)
+	builder.Finish(msgOffset)
+
+	return GetRootAsMessage(builder.FinishedBytes(), 0), nil
+
 }
 
-func (a *Message) Equal(b *Message) bool {
-	if a != b {
-		if a == nil || b == nil ||
-			a.Id != b.Id ||
-			a.Author != b.Author ||
-			a.Content != b.Content ||
-			!a.CreatedAt.Equal(b.CreatedAt) ||
-			!a.UpdatedAt.Equal(b.UpdatedAt) {
-			return false
-		}
+func CloneMessageWithUpdates(prev *Message, content string) *Message {
+	now := time.Now().UnixMilli()
+
+	builder := flatbuffers.NewBuilder(1024)
+	idOffset := builder.CreateByteString(prev.Id())
+	authorOffset := builder.CreateByteString(prev.Author())
+	convoOffset := builder.CreateByteString(prev.Conversation())
+	contentOffset := builder.CreateString(content)
+
+	MessageStart(builder)
+	MessageAddId(builder, idOffset)
+	MessageAddAuthor(builder, authorOffset)
+	MessageAddConversation(builder, convoOffset)
+	MessageAddContent(builder, contentOffset)
+	MessageAddCreated(builder, prev.Created())
+	MessageAddUpdated(builder, now)
+
+	msgOffset := MessageEnd(builder)
+	builder.Finish(msgOffset)
+
+	return GetRootAsMessage(builder.FinishedBytes(), 0)
+}
+
+func MessageEqual(a, b *Message) bool {
+	if a == b {
+		return true
 	}
-	return true
-}
 
-type MessageService interface {
-	CreateMessage(ctx context.Context, p CreateMessageParams) (Message, error)
-	GetMessage(ctx context.Context, p GetMessageParams) (Message, error)
-	UpdateMessage(ctx context.Context, p UpdateMessageParams) error
-	RemoveMessage(ctx context.Context, p RemoveMessageParams) error
-	ListMessages(ctx context.Context, p ListMessagesParams) ([]Message, error)
-}
+	if a == nil || b == nil {
+		return false
+	}
 
-type CreateMessageParams struct {
-	ConversationId Uuid       `json:"conversation"`
-	Author         Uuid       `json:"author"`
-	Content        string     `json:"content"`
-	PassKey        crypto.Key `json:"-"`
-}
+	if slices.Equal(a.Id(), b.Id()) &&
+		slices.Equal(a.Author(), b.Author()) &&
+		slices.Equal(a.Conversation(), b.Conversation()) &&
+		slices.Equal(a.Content(), b.Content()) &&
+		a.Created() == b.Created() &&
+		a.Updated() == b.Updated() {
+		return true
+	}
 
-type GetMessageParams struct {
-	Id      Uuid       `json:"id"`
-	PassKey crypto.Key `json:"-"`
-}
-
-type UpdateMessageParams struct {
-	Id      Uuid       `json:"id"`
-	Content *string    `json:"content"`
-	PassKey crypto.Key `json:"-"`
-}
-
-type RemoveMessageParams struct {
-	Id Uuid `json:"id"`
-}
-
-type ListMessagesParams struct {
-	ConversationId Uuid       `json:"conversation"`
-	ContentPattern *string    `json:"pattern"`
-	StartDate      *time.Time `json:"start"`
-	EndDate        *time.Time `json:"end"`
-	PassKey        crypto.Key `json:"-"`
+	return false
 }

@@ -6,3 +6,4 @@ flatc --go --gen-onefile --go-namespace model -o "$here/../internal/model" "$her
 flatc --go --gen-onefile --go-namespace services -o "$here/../internal/services" "$here/svc_group.fbs"
 flatc --go --gen-onefile --go-namespace services -o "$here/../internal/services" "$here/svc_member.fbs"
 flatc --go --gen-onefile --go-namespace services -o "$here/../internal/services" "$here/svc_conversation.fbs"
+flatc --go --gen-onefile --go-namespace services -o "$here/../internal/services" "$here/svc_message.fbs"

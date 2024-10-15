@@ -16,7 +16,8 @@ import (
 	"time"
 
 	"github.com/bradenhc/kolob/internal/server/session"
-	"github.com/bradenhc/kolob/internal/services/sqlite"
+	"github.com/bradenhc/kolob/internal/services"
+	"github.com/bradenhc/kolob/internal/store/sqlite"
 )
 
 type ContextKey string
@@ -34,16 +35,20 @@ func NewServer(c Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
 
-	groupService := sqlite.NewGroupService(db)
-	groupHandler := NewGroupHandler(&groupService)
+	groupStore, err := sqlite.NewGroupStore(db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create group store: %v", err)
+	}
+	groupService := services.NewGroupService(groupStore)
+	groupHandler := NewGroupHandler(groupService)
 
 	sessions := session.NewManager()
 
 	middlware := NewMiddlewareChain(sessions)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/group", groupHandler.InitGroup)
-	mux.HandleFunc("GET /api/group", middlware.Finish(groupHandler.GetGroupInfo))
+	mux.HandleFunc("POST /api/v1/group", groupHandler.InitGroup)
+	mux.HandleFunc("GET /api/v1/group", middlware.Finish(groupHandler.GetGroupInfo))
 
 	httpServer := http.Server{
 		Addr:    fmt.Sprintf(":%d", c.Port),

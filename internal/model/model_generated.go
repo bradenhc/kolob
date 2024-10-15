@@ -403,7 +403,7 @@ func (rcv *Message) Author() []byte {
 	return nil
 }
 
-func (rcv *Message) Content() []byte {
+func (rcv *Message) Conversation() []byte {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
 	if o != 0 {
 		return rcv._tab.ByteVector(o + rcv._tab.Pos)
@@ -411,19 +411,15 @@ func (rcv *Message) Content() []byte {
 	return nil
 }
 
-func (rcv *Message) Created() int64 {
+func (rcv *Message) Content() []byte {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
 	if o != 0 {
-		return rcv._tab.GetInt64(o + rcv._tab.Pos)
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
 	}
-	return 0
+	return nil
 }
 
-func (rcv *Message) MutateCreated(n int64) bool {
-	return rcv._tab.MutateInt64Slot(10, n)
-}
-
-func (rcv *Message) Updated() int64 {
+func (rcv *Message) Created() int64 {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
 	if o != 0 {
 		return rcv._tab.GetInt64(o + rcv._tab.Pos)
@@ -431,12 +427,24 @@ func (rcv *Message) Updated() int64 {
 	return 0
 }
 
-func (rcv *Message) MutateUpdated(n int64) bool {
+func (rcv *Message) MutateCreated(n int64) bool {
 	return rcv._tab.MutateInt64Slot(12, n)
 }
 
+func (rcv *Message) Updated() int64 {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
+	if o != 0 {
+		return rcv._tab.GetInt64(o + rcv._tab.Pos)
+	}
+	return 0
+}
+
+func (rcv *Message) MutateUpdated(n int64) bool {
+	return rcv._tab.MutateInt64Slot(14, n)
+}
+
 func MessageStart(builder *flatbuffers.Builder) {
-	builder.StartObject(5)
+	builder.StartObject(6)
 }
 func MessageAddId(builder *flatbuffers.Builder, id flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(id), 0)
@@ -444,14 +452,17 @@ func MessageAddId(builder *flatbuffers.Builder, id flatbuffers.UOffsetT) {
 func MessageAddAuthor(builder *flatbuffers.Builder, author flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(author), 0)
 }
+func MessageAddConversation(builder *flatbuffers.Builder, conversation flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(conversation), 0)
+}
 func MessageAddContent(builder *flatbuffers.Builder, content flatbuffers.UOffsetT) {
-	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(content), 0)
+	builder.PrependUOffsetTSlot(3, flatbuffers.UOffsetT(content), 0)
 }
 func MessageAddCreated(builder *flatbuffers.Builder, created int64) {
-	builder.PrependInt64Slot(3, created, 0)
+	builder.PrependInt64Slot(4, created, 0)
 }
 func MessageAddUpdated(builder *flatbuffers.Builder, updated int64) {
-	builder.PrependInt64Slot(4, updated, 0)
+	builder.PrependInt64Slot(5, updated, 0)
 }
 func MessageEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

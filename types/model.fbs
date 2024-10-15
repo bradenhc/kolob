@@ -31,9 +31,10 @@ table Conversation {
 }
 
 table Message {
-    id      : string;
-    author  : string;
-    content : string;
-    created : int64;
-    updated : int64;
+    id              : string;
+    author          : string;
+    conversation    : string;
+    content         : string;
+    created         : int64;
+    updated         : int64;
 }

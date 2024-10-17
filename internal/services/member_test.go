@@ -47,6 +47,9 @@ func TestMemberService(t *testing.T) {
 	// Authenticate member
 	doTestMemberAuth(t, ctx, ms, key)
 
+	// Change password
+	doTestMemberChangePassword(t, ctx, ms)
+
 	// Get member
 	b := doTestMemberFindByUsername(t, ctx, ms, key, a)
 
@@ -99,7 +102,7 @@ func doTestMemberAdd(
 	}
 
 	if string(a.Name()) != name {
-		t.Errorf("member name incorrect: %s != %s", a.Name, name)
+		t.Errorf("member name incorrect: %s != %s", a.Name(), name)
 	}
 	if string(a.Uname()) != uname {
 		t.Errorf("member username incorrect: %s != %s", a.Uname(), uname)

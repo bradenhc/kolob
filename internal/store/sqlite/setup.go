@@ -23,7 +23,7 @@ func Open(path string) (*sql.DB, error) {
 
 	_, err = db.Exec("PRAGMA foreign_keys = ON")
 	if err != nil {
-		return nil, fmt.Errorf("failed to enable foreign keys", err)
+		return nil, fmt.Errorf("failed to enable foreign keys: %v", err)
 	}
 
 	return db, nil

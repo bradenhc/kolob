@@ -30,13 +30,13 @@ func (s *ConversationService) Add(
 	}
 	c, err := model.NewConversation(string(req.Name()), string(req.Description()), mods)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create conversation object", err)
+		return nil, fmt.Errorf("failed to create conversation object: %v", err)
 	}
 
 	// Encrypt the conversation info before storing it in the database
 	edata, err := crypto.Encrypt(key, c.Table().Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create encrypted data accessor", err)
+		return nil, fmt.Errorf("failed to create encrypted data accessor: %v", err)
 	}
 
 	// Store the conversation in the database
@@ -47,7 +47,7 @@ func (s *ConversationService) Add(
 	}
 	err = s.store.AddConversationData(ctx, meta, edata)
 	if err != nil {
-		return nil, fmt.Errorf("failed to store conversation in database", err)
+		return nil, fmt.Errorf("failed to store conversation in database: %v", err)
 	}
 
 	return c, nil
@@ -105,7 +105,7 @@ func (s *ConversationService) Remove(
 ) error {
 	err := s.store.RemoveConversationData(ctx, model.Uuid(req.Id()))
 	if err != nil {
-		return fmt.Errorf("failed to remove member from database", err)
+		return fmt.Errorf("failed to remove member from database: %v", err)
 	}
 
 	return nil

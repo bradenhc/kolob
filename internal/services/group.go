@@ -25,6 +25,9 @@ func NewGroupService(store store.GroupStore) GroupService {
 func (svc GroupService) Create(ctx context.Context, req *GroupInitRequest) (*model.Group, error) {
 	// Make sure there isn't already a set of group information in the database
 	exists, err := svc.store.IsGroupDataSet(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check group initialization: %v", err)
+	}
 	if exists {
 		return nil, fmt.Errorf("group already exists")
 	}
@@ -36,65 +39,29 @@ func (svc GroupService) Create(ctx context.Context, req *GroupInitRequest) (*mod
 		return nil, fmt.Errorf("failed to create new data encryption key for group: %v", err)
 	}
 
-	// Generate a second key using the user password that will encrypt the data key (pass key)
-	psalt, err := crypto.NewSalt()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create salt for group: %v", err)
-	}
-	slog.Info("Deriving password key")
-	pkey := crypto.NewDerivedKey(crypto.Password(req.Password()), psalt)
-
-	// Encyrypt the data key using the pass key before we store it in the database
-	slog.Info("Encrypting data key")
-	ekey, err := crypto.Encrypt(pkey, dkey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt data key: %v", err)
-	}
-
-	// Hash the group id so we can use it for authentication without leaking information
-	ghash := crypto.HashData(req.GroupId())
-
-	// Hash the password so we can use it for authentication
-	phash, err := crypto.HashPassword(crypto.Password(req.Password()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to generated group password hash: %v", err)
-	}
-
 	// Create the group data to encrypt and store
 	group, err := model.NewGroup(string(req.GroupId()), string(req.Name()), string(req.Description()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize group: %v", err)
 	}
 
-	// Encrypt the group information to protect privacy
-	slog.Info("Encrypting group information")
-	edata, err := crypto.Encrypt(dkey, group.Table().Bytes)
+	entity, err := store.NewGroupEntity(group, crypto.Password(req.Password()), dkey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt group data before storing in database: %v", err)
+		return nil, fmt.Errorf("failed to create group store entity: %v", err)
 	}
 
-	// Store the group information
-	meta := store.GroupMetadata{
-		Id:           model.Uuid(group.Id()),
-		GroupHash:    ghash,
-		PassSalt:     psalt,
-		PassHash:     phash,
-		EncryptedKey: ekey,
-		CreatedAt:    group.Created(),
-		UpdatedAt:    group.Updated(),
-	}
-	svc.store.SetGroupData(ctx, meta, edata)
+	svc.store.AddGroupEntity(ctx, entity)
 
 	return group, nil
 }
 
-func (g GroupService) GetInfo(ctx context.Context, dkey crypto.Key) (*model.Group, error) {
-	d, err := g.store.GetGroupData(ctx)
+func (g GroupService) Get(ctx context.Context, dkey crypto.Key) (*model.Group, error) {
+	e, err := g.store.GetGroupEntity(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("store error: %v", err)
 	}
 
-	data, err := crypto.Decrypt(dkey, d)
+	data, err := crypto.Decrypt(dkey, e.EncryptedData)
 	if err != nil {
 		return nil, fmt.Errorf("decrypt error: %v", err)
 	}
@@ -105,7 +72,7 @@ func (g GroupService) GetInfo(ctx context.Context, dkey crypto.Key) (*model.Grou
 func (g GroupService) Authenticate(
 	ctx context.Context, req *GroupAuthenticateRequest,
 ) (crypto.Key, error) {
-	m, err := g.store.GetGroupMetadata(ctx)
+	m, err := g.store.GetGroupEntity(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("store error: %v", err)
 	}
@@ -131,17 +98,12 @@ func (g GroupService) Authenticate(
 func (g GroupService) Update(
 	ctx context.Context, req *GroupUpdateRequest, dkey crypto.Key,
 ) (*model.Group, error) {
-	m, err := g.store.GetGroupMetadata(ctx)
+	e, err := g.store.GetGroupEntity(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not get metadata from store: %v", err)
+		return nil, fmt.Errorf("could not get group entity from store: %v", err)
 	}
 
-	edata, err := g.store.GetGroupData(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("could not get data from store: %v", err)
-	}
-
-	data, err := crypto.Decrypt(dkey, edata)
+	data, err := crypto.Decrypt(dkey, e.EncryptedData)
 	if err != nil {
 		return nil, fmt.Errorf("could not decrypt group data: %v", err)
 	}
@@ -149,11 +111,18 @@ func (g GroupService) Update(
 
 	group := model.GroupCloneWithUpdates(prev, req.GroupId(), req.Name(), req.Description())
 
-	m.GroupHash = crypto.HashData(group.Gid())
-	m.UpdatedAt = group.Updated()
+	e.GroupHash = crypto.HashData(group.Gid())
+	e.UpdatedAt = group.Updated()
 
-	edata, err = crypto.Encrypt(dkey, group.Table().Bytes)
-	g.store.UpdateGroupData(ctx, m, edata)
+	e.EncryptedData, err = crypto.Encrypt(dkey, group.Table().Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt group data: %v", err)
+	}
+
+	err = g.store.UpdateGroupEntity(ctx, e)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store updated group entity: %v", err)
+	}
 
 	return group, nil
 }
@@ -161,21 +130,16 @@ func (g GroupService) Update(
 func (g GroupService) ChangePassword(
 	ctx context.Context, req *GroupChangePasswordRequest, dkey crypto.Key,
 ) error {
-	m, err := g.store.GetGroupMetadata(ctx)
+	e, err := g.store.GetGroupEntity(ctx)
 	if err != nil {
 		return fmt.Errorf("metadata fetch failed: %v", err)
 	}
 
-	if !crypto.CheckPasswordHash(crypto.Password(req.OldPassword()), m.PassHash) {
+	if !crypto.CheckPasswordHash(crypto.Password(req.OldPassword()), e.PassHash) {
 		return fmt.Errorf("old password validation failed")
 	}
 
-	edata, err := g.store.GetGroupData(ctx)
-	if err != nil {
-		return fmt.Errorf("data fetch failed: %v", err)
-	}
-
-	data, err := crypto.Decrypt(dkey, edata)
+	data, err := crypto.Decrypt(dkey, e.EncryptedData)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt group data: %v", err)
 	}
@@ -194,23 +158,27 @@ func (g GroupService) ChangePassword(
 	if err != nil {
 		return fmt.Errorf("failed to generate hash for new password: %v", err)
 	}
-	m.PassSalt = psalt
-	m.PassHash = phash
+	e.PassSalt = psalt
+	e.PassHash = phash
 
 	pkey := crypto.NewDerivedKey(npass, psalt)
 	ekey, err := crypto.Encrypt(pkey, dkey)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt data key with new password key: %v", err)
 	}
-	m.EncryptedKey = ekey
+	e.EncryptedKey = ekey
 
 	updated := time.Now().UnixMilli()
-	m.UpdatedAt = updated
+	e.UpdatedAt = updated
 	group := model.GetRootAsGroup(data, 0)
 	group.MutateUpdated(updated)
 
-	edata, err = crypto.Encrypt(dkey, data)
-	err = g.store.UpdateGroupData(ctx, m, edata)
+	e.EncryptedData, err = crypto.Encrypt(dkey, data)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt update group data: %v", err)
+	}
+
+	err = g.store.UpdateGroupEntity(ctx, e)
 	if err != nil {
 		return fmt.Errorf("failed to update group: %v", err)
 	}

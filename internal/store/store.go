@@ -11,21 +11,10 @@ import (
 )
 
 type GroupStore interface {
-	SetGroupData(ctx context.Context, m GroupMetadata, d []byte) error
+	AddGroupEntity(ctx context.Context, e GroupEntity) error
 	IsGroupDataSet(ctx context.Context) (bool, error)
-	GetGroupMetadata(ctx context.Context) (GroupMetadata, error)
-	GetGroupData(ctx context.Context) ([]byte, error)
-	UpdateGroupData(ctx context.Context, m GroupMetadata, d []byte) error
-}
-
-type GroupMetadata struct {
-	Id           model.Uuid
-	GroupHash    crypto.DataHash
-	PassSalt     crypto.Salt
-	PassHash     crypto.PassHash
-	EncryptedKey []byte
-	CreatedAt    int64
-	UpdatedAt    int64
+	GetGroupEntity(ctx context.Context) (GroupEntity, error)
+	UpdateGroupEntity(ctx context.Context, e GroupEntity) error
 }
 
 type MemberStore interface {

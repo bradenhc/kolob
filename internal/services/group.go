@@ -103,20 +103,9 @@ func (g GroupService) Update(
 		return nil, fmt.Errorf("could not get group entity from store: %v", err)
 	}
 
-	data, err := crypto.Decrypt(dkey, e.EncryptedData)
+	group, err := e.Update(dkey, req.GroupId(), req.Name(), req.Description())
 	if err != nil {
-		return nil, fmt.Errorf("could not decrypt group data: %v", err)
-	}
-	prev := model.GetRootAsGroup(data, 0)
-
-	group := model.GroupCloneWithUpdates(prev, req.GroupId(), req.Name(), req.Description())
-
-	e.GroupHash = crypto.HashData(group.Gid())
-	e.UpdatedAt = group.Updated()
-
-	e.EncryptedData, err = crypto.Encrypt(dkey, group.Table().Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt group data: %v", err)
+		return nil, fmt.Errorf("could not update group: %v", err)
 	}
 
 	err = g.store.UpdateGroupEntity(ctx, e)

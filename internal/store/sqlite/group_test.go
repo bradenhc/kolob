@@ -17,7 +17,7 @@ func TestGroupSqliteStore(t *testing.T) {
 	// Setup the test
 	t.Parallel()
 	tempdir := t.TempDir()
-	dbpath := path.Join(tempdir, "kolob-TestGroupService.db")
+	dbpath := path.Join(tempdir, "kolob-TestGroupSqliteStore.db")
 
 	db, err := sqlite.Open(dbpath)
 	if err != nil {

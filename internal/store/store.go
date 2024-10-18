@@ -18,20 +18,12 @@ type GroupStore interface {
 }
 
 type MemberStore interface {
-	AddMemberData(ctx context.Context, m MemberMetadata, d []byte) error
-	GetMemberData(ctx context.Context, id model.Uuid) (MemberMetadata, []byte, error)
-	GetMemberDataByUname(ctx context.Context, uhash crypto.DataHash) (MemberMetadata, []byte, error)
-	UpdateMemberData(ctx context.Context, m MemberMetadata, d []byte) error
-	RemoveMemberData(ctx context.Context, id model.Uuid) error
-	ListMemberData(ctx context.Context) ([][]byte, error)
-}
-
-type MemberMetadata struct {
-	Id           model.Uuid
-	UsernameHash crypto.DataHash
-	PassHash     crypto.PassHash
-	CreatedAt    int64
-	UpdatedAt    int64
+	AddMemberEntity(ctx context.Context, e MemberEntity) error
+	GetMemberEntity(ctx context.Context, id model.Uuid) (MemberEntity, error)
+	GetMemberEntityByUname(ctx context.Context, uhash crypto.DataHash) (MemberEntity, error)
+	UpdateMemberEntity(ctx context.Context, e MemberEntity) error
+	RemoveMemberEntity(ctx context.Context, id model.Uuid) error
+	ListMemberEntities(ctx context.Context) ([]MemberEntity, error)
 }
 
 type ConversationStore interface {

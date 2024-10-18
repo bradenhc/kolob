@@ -6,6 +6,7 @@ package services_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"path"
 	"testing"
 
@@ -20,12 +21,14 @@ func TestMemberService(t *testing.T) {
 	// Setup the test
 	t.Parallel()
 	tempdir := t.TempDir()
-	dbpath := path.Join(tempdir, "member-service-test.db")
+	dbpath := path.Join(tempdir, "kolob-TestMemberService.db")
+	fmt.Printf("DB path for test: %s\n", dbpath)
 
 	db, err := sqlite.Open(dbpath)
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
+	defer db.Close()
 
 	ctx := context.Background()
 
@@ -48,7 +51,7 @@ func TestMemberService(t *testing.T) {
 	doTestMemberAuth(t, ctx, ms, key)
 
 	// Change password
-	doTestMemberChangePassword(t, ctx, ms)
+	doTestMemberChangePassword(t, ctx, ms, a)
 
 	// Get member
 	b := doTestMemberFindByUsername(t, ctx, ms, key, a)
@@ -77,7 +80,7 @@ func doTestMemberAdd(
 ) *model.Member {
 	uname := "testuser"
 	name := "Alice Ann"
-	upass, err := crypto.NewPassword("U$hal1~PAss!")
+	upass, err := crypto.NewPassword("Password12345678!")
 	if err != nil {
 		t.Fatalf("failed to create member password: %v", err)
 	}
@@ -115,7 +118,7 @@ func doTestMemberAuth(
 	t *testing.T, ctx context.Context, ms services.MemberService, key crypto.Key,
 ) {
 	uname := "testuser"
-	upass := "U$hal1~PAss!"
+	upass := "Password12345678!"
 
 	builder := flatbuffers.NewBuilder(64)
 	unameOffset := builder.CreateString(uname)
@@ -133,13 +136,14 @@ func doTestMemberAuth(
 	}
 }
 
-func doTestMemberChangePassword(t *testing.T, ctx context.Context, ms services.MemberService) {
-	id := "testuser"
-	oldPass := "U$hal1~PAss!"
-	newPass := "And$0itBegins"
+func doTestMemberChangePassword(
+	t *testing.T, ctx context.Context, ms services.MemberService, a *model.Member,
+) {
+	oldPass := "Password12345678!"
+	newPass := "UpdatedPassword12345!"
 
 	builder := flatbuffers.NewBuilder(64)
-	idOffset := builder.CreateString(id)
+	idOffset := builder.CreateByteString(a.Id())
 	oldPassOffset := builder.CreateString(oldPass)
 	newPassOffset := builder.CreateString(newPass)
 	services.MemberChangePasswordRequestStart(builder)
@@ -188,9 +192,11 @@ func doTestMemberUpdate(
 	name := "Bob Bill"
 
 	builder := flatbuffers.NewBuilder(64)
+	idOffset := builder.CreateByteString(b.Id())
 	unameOffset := builder.CreateString(uname)
 	nameOffset := builder.CreateString(name)
 	services.MemberUpdateRequestStart(builder)
+	services.MemberUpdateRequestAddId(builder, idOffset)
 	services.MemberUpdateRequestAddUsername(builder, unameOffset)
 	services.MemberUpdateRequestAddName(builder, nameOffset)
 	r := services.MemberUpdateRequestEnd(builder)

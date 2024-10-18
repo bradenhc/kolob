@@ -42,12 +42,12 @@ func NewMemberStore(db *sql.DB) (MemberStore, error) {
 	return MemberStore{db}, nil
 }
 
-func (s MemberStore) AddMemberData(ctx context.Context, m store.MemberMetadata, d []byte) error {
-	slog.Info("Adding member information to SQLite database")
+func (s MemberStore) AddMemberEntity(ctx context.Context, e store.MemberEntity) error {
+	slog.Info("Adding member information to sqlite database")
 	_, err := s.db.ExecContext(
 		ctx,
 		"INSERT INTO member VALUES (?, ?, ?, ?, ?, ?)",
-		m.Id, m.CreatedAt, m.UpdatedAt, m.UsernameHash[:], m.PassHash, d,
+		e.Id, e.UsernameHash[:], e.PassHash, e.CreatedAt, e.UpdatedAt, e.EncryptedData,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to store new member in database: %v", err)
@@ -56,45 +56,51 @@ func (s MemberStore) AddMemberData(ctx context.Context, m store.MemberMetadata, 
 	return nil
 }
 
-func (s MemberStore) GetMemberData(
+func (s MemberStore) GetMemberEntity(
 	ctx context.Context, id model.Uuid,
-) (store.MemberMetadata, []byte, error) {
-	var m store.MemberMetadata
-	var d []byte
+) (store.MemberEntity, error) {
+	var e store.MemberEntity
+	var uhash []byte
 	err := s.db.QueryRowContext(
-		ctx, "SELECT id, uhash, phash, created, updated, data FROM [member] WHERE id = ?", id,
+		ctx, "SELECT * FROM [member] WHERE id = ?", id,
 	).Scan(
-		&m.Id, &m.UsernameHash, &m.PassHash, &m.CreatedAt, &m.UpdatedAt, &d,
+		&e.Id, &uhash, &e.PassHash, &e.CreatedAt, &e.UpdatedAt, &e.EncryptedData,
 	)
 	if err != nil {
-		return m, d, fmt.Errorf("failed to get member data from SQLite database: %v", err)
+		var e store.MemberEntity
+		return e, fmt.Errorf("failed to get member data from sqlite database: %v", err)
 	}
 
-	return m, d, nil
+	copy(e.UsernameHash[:], uhash)
+
+	return e, nil
 }
 
-func (s MemberStore) GetMemberDataByUname(
+func (s MemberStore) GetMemberEntityByUname(
 	ctx context.Context, uhash crypto.DataHash,
-) (store.MemberMetadata, []byte, error) {
-	var m store.MemberMetadata
-	var d []byte
+) (store.MemberEntity, error) {
+	var e store.MemberEntity
+	var uh []byte
 	err := s.db.QueryRowContext(
-		ctx, "SELECT id, uhash, phash, created, updated, data FROM [member] WHERE uhash = ?",
+		ctx, "SELECT * FROM [member] WHERE uhash = ?",
 		uhash[:],
 	).Scan(
-		&m.Id, &m.UsernameHash, &m.PassHash, &m.CreatedAt, &m.UpdatedAt, &d,
+		&e.Id, &uh, &e.PassHash, &e.CreatedAt, &e.UpdatedAt, &e.EncryptedData,
 	)
 	if err != nil {
-		return m, d, fmt.Errorf("failed to get member data by uname from SQLite database: %v", err)
+		var e store.MemberEntity
+		return e, fmt.Errorf("failed to get member data by uname from sqlite database: %v", err)
 	}
 
-	return m, d, nil
+	copy(e.UsernameHash[:], uh)
+
+	return e, nil
 }
 
-func (s MemberStore) UpdateMemberData(ctx context.Context, m store.MemberMetadata, d []byte) error {
+func (s MemberStore) UpdateMemberEntity(ctx context.Context, e store.MemberEntity) error {
 	query := "UPDATE [member] SET uhash = ?, phash = ?, updated = ?, data = ? WHERE id = ?"
 	_, err := s.db.ExecContext(
-		ctx, query, m.UsernameHash, m.PassHash, m.UpdatedAt, d, m.Id[:],
+		ctx, query, e.UsernameHash[:], e.PassHash, e.UpdatedAt, e.EncryptedData, e.Id[:],
 	)
 	if err != nil {
 		return fmt.Errorf("failed to store updated member data in database: %v", err)
@@ -103,7 +109,7 @@ func (s MemberStore) UpdateMemberData(ctx context.Context, m store.MemberMetadat
 	return nil
 }
 
-func (s MemberStore) RemoveMemberData(ctx context.Context, id model.Uuid) error {
+func (s MemberStore) RemoveMemberEntity(ctx context.Context, id model.Uuid) error {
 	query := "DELETE FROM [member] WHERE id = ?"
 	_, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
@@ -112,22 +118,28 @@ func (s MemberStore) RemoveMemberData(ctx context.Context, id model.Uuid) error 
 	return nil
 }
 
-func (s MemberStore) ListMemberData(ctx context.Context) ([][]byte, error) {
-	query := "SELECT data FROM [member]"
+func (s MemberStore) ListMemberEntities(ctx context.Context) ([]store.MemberEntity, error) {
+	query := "SELECT * FROM [member]"
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get member list from database: %v", err)
 	}
 	defer rows.Close()
 
-	ms := make([][]byte, 0)
+	ms := make([]store.MemberEntity, 0)
 	for rows.Next() {
-		var data []byte
-		if err := rows.Scan(&data); err != nil {
+		var e store.MemberEntity
+		var uhash []byte
+		err := rows.Scan(
+			&e.Id, &uhash, &e.PassHash, &e.CreatedAt, &e.UpdatedAt, &e.EncryptedData,
+		)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan member row: %v", err)
 		}
 
-		ms = append(ms, data)
+		copy(e.UsernameHash[:], uhash)
+
+		ms = append(ms, e)
 	}
 
 	return ms, nil

@@ -66,7 +66,7 @@ func doTestGroupCreate(t *testing.T, ctx context.Context, gs services.GroupServi
 	offsetGid := builder.CreateString("TestGroup123")
 	offsetName := builder.CreateString("Test Group")
 	offsetDesc := builder.CreateString("A test group")
-	offsetPass := builder.CreateString("Password12345!")
+	offsetPass := builder.CreateString("Password12345678!")
 	services.GroupInitRequestStart(builder)
 	services.GroupInitRequestAddGroupId(builder, offsetGid)
 	services.GroupInitRequestAddName(builder, offsetName)
@@ -99,7 +99,7 @@ func doTestGroupCreate(t *testing.T, ctx context.Context, gs services.GroupServi
 func doTestGroupAuth(t *testing.T, ctx context.Context, gs services.GroupService) crypto.Key {
 	builder := flatbuffers.NewBuilder(64)
 	offsetGid := builder.CreateString("TestGroup123")
-	offsetPass := builder.CreateString("Password12345!")
+	offsetPass := builder.CreateString("Password12345678!")
 	services.GroupAuthenticateRequestStart(builder)
 	services.GroupAuthenticateRequestAddGroupId(builder, offsetGid)
 	services.GroupAuthenticateRequestAddPassword(builder, offsetPass)
@@ -173,7 +173,7 @@ func doTestGroupChangePassword(
 	t *testing.T, ctx context.Context, gs services.GroupService, dkey crypto.Key, c *model.Group,
 ) {
 	builder := flatbuffers.NewBuilder(64)
-	offsetOldPass := builder.CreateString("Password12345!")
+	offsetOldPass := builder.CreateString("Password12345678!")
 	newp, _ := crypto.NewPassword("UpdatedPassword123456!")
 	offsetNewPass := builder.CreateString(string(newp))
 	services.GroupChangePasswordRequestStart(builder)

@@ -170,3 +170,55 @@ func (e *MemberEntity) Update(k crypto.Key, uname, name []byte) (*model.Member, 
 
 	return next, nil
 }
+
+type ConversationEntity struct {
+	Id            model.Uuid
+	CreatedAt     int64
+	UpdatedAt     int64
+	EncryptedData []byte
+}
+
+func NewConversationEntity(c *model.Conversation, k crypto.Key) (ConversationEntity, error) {
+	edata, err := crypto.Encrypt(k, c.Table().Bytes)
+	if err != nil {
+		var e ConversationEntity
+		return e, fmt.Errorf("failed to encrypt conversation info: %v", err)
+	}
+
+	return ConversationEntity{
+		Id:            model.Uuid(c.Id()),
+		CreatedAt:     c.Created(),
+		UpdatedAt:     c.Updated(),
+		EncryptedData: edata,
+	}, nil
+}
+
+func (e *ConversationEntity) Decrypt(k crypto.Key) (*model.Conversation, error) {
+	data, err := crypto.Decrypt(k, e.EncryptedData)
+	if err != nil {
+		return nil, err
+	}
+
+	return model.GetRootAsConversation(data, 0), nil
+}
+
+func (e *ConversationEntity) Update(
+	k crypto.Key, name, desc []byte, mods [][]byte,
+) (*model.Conversation, error) {
+	prev, err := e.Decrypt(k)
+	if err != nil {
+		return nil, err
+	}
+
+	next := model.CloneConversationWithUpdates(prev, name, desc, mods)
+
+	edata, err := crypto.Encrypt(k, next.Table().Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	e.UpdatedAt = next.Updated()
+	e.EncryptedData = edata
+
+	return next, nil
+}

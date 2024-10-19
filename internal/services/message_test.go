@@ -23,7 +23,7 @@ func TestMessageService(t *testing.T) {
 	//
 	t.Parallel()
 	tempdir := t.TempDir()
-	dbpath := path.Join(tempdir, "message-service-test.db")
+	dbpath := path.Join(tempdir, "kolob.db")
 
 	db, err := sqlite.Open(dbpath)
 	if err != nil {
@@ -41,8 +41,8 @@ func TestMessageService(t *testing.T) {
 	// Setup members
 	memberStore := doTestMemberCreateStore(t, db)
 	svcMember := services.NewMemberService(memberStore)
-	member1 := doTestMemberAdd(t, ctx, svcMember, key)
-	member2 := doTestMemberAdd(t, ctx, svcMember, key)
+	member1 := doTestMemberAdd(t, ctx, svcMember, key, "user1")
+	member2 := doTestMemberAdd(t, ctx, svcMember, key, "user2")
 
 	// Setup conversations
 	convoStore := doTestConversationCreateStore(t, db)

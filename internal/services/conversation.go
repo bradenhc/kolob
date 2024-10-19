@@ -24,7 +24,7 @@ func (s *ConversationService) Add(
 	ctx context.Context, req *ConversationAddRequest, key crypto.Key,
 ) (*model.Conversation, error) {
 	// Create the conversation object
-	mods := make([]model.Uuid, req.ModeratorsLength())
+	mods := make([]model.Uuid, 0, req.ModeratorsLength())
 	for i := range req.ModeratorsLength() {
 		mods = append(mods, model.Uuid(req.Moderators(i)))
 	}
@@ -33,21 +33,16 @@ func (s *ConversationService) Add(
 		return nil, fmt.Errorf("failed to create conversation object: %v", err)
 	}
 
-	// Encrypt the conversation info before storing it in the database
-	edata, err := crypto.Encrypt(key, c.Table().Bytes)
+	// Create the entity we will store
+	entity, err := store.NewConversationEntity(c, key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create encrypted data accessor: %v", err)
+		return nil, fmt.Errorf("failed to create conversation entity: %v", err)
 	}
 
-	// Store the conversation in the database
-	meta := store.ConversationMetadata{
-		Id:        model.Uuid(c.Id()),
-		CreatedAt: c.Created(),
-		UpdatedAt: c.Updated(),
-	}
-	err = s.store.AddConversationData(ctx, meta, edata)
+	// Store the entity
+	err = s.store.AddConversationEntity(ctx, entity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to store conversation in database: %v", err)
+		return nil, fmt.Errorf("failed to store conversation entity: %v", err)
 	}
 
 	return c, nil
@@ -56,54 +51,44 @@ func (s *ConversationService) Add(
 func (s *ConversationService) Get(
 	ctx context.Context, req *ConversationGetRequest, key crypto.Key,
 ) (*model.Conversation, error) {
-	_, edata, err := s.store.GetConversationData(ctx, model.Uuid(req.Id()))
+	entity, err := s.store.GetConversationEntity(ctx, model.Uuid(req.Id()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get conversation from store: %v", err)
 	}
 
-	data, err := crypto.Decrypt(key, edata)
+	m, err := entity.Decrypt(key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt conversation: %v", err)
 	}
 
-	return model.GetRootAsConversation(data, 0), nil
+	return m, nil
 }
 
 func (s *ConversationService) Update(
 	ctx context.Context, req *ConversationUpdateRequest, key crypto.Key,
-) error {
-	meta, edata, err := s.store.GetConversationData(ctx, model.Uuid(req.Id()))
+) (*model.Conversation, error) {
+	entity, err := s.store.GetConversationEntity(ctx, model.Uuid(req.Id()))
 	if err != nil {
-		return fmt.Errorf("failed to get conversation from store: %v", err)
+		return nil, fmt.Errorf("failed to get conversation from store: %v", err)
 	}
 
-	data, err := crypto.Decrypt(key, edata)
+	convo, err := entity.Update(key, req.Name(), req.Description(), nil)
 	if err != nil {
-		return fmt.Errorf("failed to decrypt conversation: %v", err)
+		return nil, fmt.Errorf("failed to update conversation entity: %v", err)
 	}
 
-	prev := model.GetRootAsConversation(data, 0)
-	c := model.CloneConversationWithUpdates(prev, req.Name(), req.Description(), nil)
-
-	edata, err = crypto.Encrypt(key, c.Table().Bytes)
+	err = s.store.UpdateConversationEntity(ctx, entity)
 	if err != nil {
-		return fmt.Errorf("failed to encrypt conversation: %v", err)
+		return nil, fmt.Errorf("faled to store updated conversation entity: %v", err)
 	}
 
-	meta.UpdatedAt = c.Updated()
-
-	err = s.store.UpdateConversationData(ctx, meta, edata)
-	if err != nil {
-		return fmt.Errorf("faled to store updated conversation: %v", err)
-	}
-
-	return nil
+	return convo, nil
 }
 
 func (s *ConversationService) Remove(
 	ctx context.Context, req *ConversationRemoveRequest,
 ) error {
-	err := s.store.RemoveConversationData(ctx, model.Uuid(req.Id()))
+	err := s.store.RemoveConversationEntity(ctx, model.Uuid(req.Id()))
 	if err != nil {
 		return fmt.Errorf("failed to remove member from database: %v", err)
 	}
@@ -114,18 +99,18 @@ func (s *ConversationService) Remove(
 func (s *ConversationService) ListAll(
 	ctx context.Context, key crypto.Key,
 ) ([]*model.Conversation, error) {
-	edatas, err := s.store.ListConversationData(ctx)
+	edatas, err := s.store.ListConversationEntities(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get conversation list: %v", err)
+		return nil, fmt.Errorf("failed to get conversation entity list: %v", err)
 	}
 
-	cs := make([]*model.Conversation, 0)
-	for i := range edatas {
-		data, err := crypto.Decrypt(key, edatas[i])
+	cs := make([]*model.Conversation, 0, len(edatas))
+	for _, e := range edatas {
+		c, err := e.Decrypt(key)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt conversation in list: %v", err)
 		}
-		cs = append(cs, model.GetRootAsConversation(data, 0))
+		cs = append(cs, c)
 	}
 
 	return cs, nil
@@ -134,25 +119,26 @@ func (s *ConversationService) ListAll(
 func (s *ConversationService) AddMods(
 	ctx context.Context, req *ConversationModsAddRequest, key crypto.Key,
 ) error {
-	meta, edata, err := s.store.GetConversationData(ctx, model.Uuid(req.Id()))
+	entity, err := s.store.GetConversationEntity(ctx, model.Uuid(req.Id()))
 	if err != nil {
 		return fmt.Errorf("failed to get conversation from store: %v", err)
 	}
 
-	data, err := crypto.Decrypt(key, edata)
+	prev, err := entity.Decrypt(key)
 	if err != nil {
-		return fmt.Errorf("failed to decrypt conversation: %v", err)
+		return fmt.Errorf("failed to descrypt conversation: %v", err)
 	}
 
-	prev := model.GetRootAsConversation(data, 0)
-
+	// First, copy the existing moderator entries into the new moderator list. While doing so, keep
+	// track of which moderator ids are already in the list so that we don't add duplicates.
 	prevMods := make(map[string]bool, prev.ModsLength())
-	newMods := make([][]byte, prev.ModsLength())
+	newMods := make([][]byte, 0, prev.ModsLength())
 	for i := range prev.ModsLength() {
 		prevMods[string(prev.Mods(i))] = true
 		newMods = append(newMods, prev.Mods(i))
 	}
 
+	// Add new moderators to the list if their id isn't already there.
 	for i := range req.ModeratorsLength() {
 		_, ok := prevMods[string(req.Moderators(i))]
 		if !ok {
@@ -161,14 +147,12 @@ func (s *ConversationService) AddMods(
 	}
 
 	c := model.CloneConversationWithUpdates(prev, nil, nil, newMods)
-	meta.UpdatedAt = c.Updated()
-
-	edata, err = crypto.Encrypt(key, c.Table().Bytes)
+	entity, err = store.NewConversationEntity(c, key)
 	if err != nil {
-		return fmt.Errorf("failed to encrypt updated conversation: %v", err)
+		return fmt.Errorf("failed to create updated conversation entity: %v", err)
 	}
 
-	err = s.store.UpdateConversationData(ctx, meta, edata)
+	err = s.store.UpdateConversationEntity(ctx, entity)
 	if err != nil {
 		return fmt.Errorf("failed to store updated conversation: %v", err)
 	}
@@ -179,24 +163,25 @@ func (s *ConversationService) AddMods(
 func (s *ConversationService) RemoveMods(
 	ctx context.Context, req *ConversationModsRemoveRequest, key crypto.Key,
 ) error {
-	meta, edata, err := s.store.GetConversationData(ctx, model.Uuid(req.Id()))
+	entity, err := s.store.GetConversationEntity(ctx, model.Uuid(req.Id()))
 	if err != nil {
 		return fmt.Errorf("failed to get conversation from store: %v", err)
 	}
 
-	data, err := crypto.Decrypt(key, edata)
+	prev, err := entity.Decrypt(key)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt conversation: %v", err)
 	}
 
-	prev := model.GetRootAsConversation(data, 0)
-
+	// First, convert the list of mods to remove to a map so that we can easily test for ids
 	modsToRemove := make(map[string]bool, req.ModeratorsLength())
 	for i := range req.ModeratorsLength() {
 		modsToRemove[string(req.Moderators(i))] = true
 	}
 
-	newMods := make([][]byte, prev.ModsLength())
+	// Iterate over the existing mods. If the id exists in the mapping of mods to remove, then
+	// remove it.
+	newMods := make([][]byte, 0, prev.ModsLength())
 	for i := range prev.ModsLength() {
 		_, found := modsToRemove[string(prev.Mods(i))]
 		if !found {
@@ -208,15 +193,15 @@ func (s *ConversationService) RemoveMods(
 		return fmt.Errorf("removing requested moderators would result in no moderators")
 	}
 
+	// Create the updated entity with the new moderator list
 	c := model.CloneConversationWithUpdates(prev, nil, nil, newMods)
-	meta.UpdatedAt = c.Updated()
-
-	edata, err = crypto.Encrypt(key, c.Table().Bytes)
+	entity, err = store.NewConversationEntity(c, key)
 	if err != nil {
-		return fmt.Errorf("failed to encrypt updated conversation: %v", err)
+		return fmt.Errorf("failed to create update conversation entity: %v", err)
 	}
 
-	err = s.store.UpdateConversationData(ctx, meta, edata)
+	// Store the updated entity
+	err = s.store.UpdateConversationEntity(ctx, entity)
 	if err != nil {
 		return fmt.Errorf("failed to store updated conversation: %v", err)
 	}

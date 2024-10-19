@@ -21,7 +21,7 @@ func TestMemberService(t *testing.T) {
 	// Setup the test
 	t.Parallel()
 	tempdir := t.TempDir()
-	dbpath := path.Join(tempdir, "kolob-TestMemberService.db")
+	dbpath := path.Join(tempdir, "kolob.db")
 	fmt.Printf("DB path for test: %s\n", dbpath)
 
 	db, err := sqlite.Open(dbpath)
@@ -45,7 +45,7 @@ func TestMemberService(t *testing.T) {
 	ms := services.NewMemberService(mstore)
 
 	// Add a member
-	a := doTestMemberAdd(t, ctx, ms, key)
+	a := doTestMemberAdd(t, ctx, ms, key, "testuser")
 
 	// Authenticate member
 	doTestMemberAuth(t, ctx, ms, key)
@@ -76,9 +76,8 @@ func doTestMemberCreateStore(t *testing.T, db *sql.DB) sqlite.MemberStore {
 }
 
 func doTestMemberAdd(
-	t *testing.T, ctx context.Context, ms services.MemberService, key crypto.Key,
+	t *testing.T, ctx context.Context, ms services.MemberService, key crypto.Key, uname string,
 ) *model.Member {
-	uname := "testuser"
 	name := "Alice Ann"
 	upass, err := crypto.NewPassword("Password12345678!")
 	if err != nil {

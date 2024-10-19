@@ -27,17 +27,11 @@ type MemberStore interface {
 }
 
 type ConversationStore interface {
-	AddConversationData(ctx context.Context, m ConversationMetadata, d []byte) error
-	GetConversationData(ctx context.Context, id model.Uuid) (ConversationMetadata, []byte, error)
-	UpdateConversationData(ctx context.Context, m ConversationMetadata, d []byte) error
-	RemoveConversationData(ctx context.Context, id model.Uuid) error
-	ListConversationData(ctx context.Context) ([][]byte, error)
-}
-
-type ConversationMetadata struct {
-	Id        model.Uuid
-	CreatedAt int64
-	UpdatedAt int64
+	AddConversationEntity(ctx context.Context, e ConversationEntity) error
+	GetConversationEntity(ctx context.Context, id model.Uuid) (ConversationEntity, error)
+	UpdateConversationEntity(ctx context.Context, e ConversationEntity) error
+	RemoveConversationEntity(ctx context.Context, id model.Uuid) error
+	ListConversationEntities(ctx context.Context) ([]ConversationEntity, error)
 }
 
 type MessageStore interface {

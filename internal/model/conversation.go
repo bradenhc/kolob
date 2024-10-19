@@ -24,7 +24,7 @@ func NewConversation(name, desc string, mods []Uuid) (*Conversation, error) {
 	idOffsets := builder.CreateString(string(uuid))
 	nameOffset := builder.CreateString(name)
 	descOffset := builder.CreateString(desc)
-	modsElsOffsets := make([]flatbuffers.UOffsetT, len(mods))
+	modsElsOffsets := make([]flatbuffers.UOffsetT, 0, len(mods))
 	for _, m := range mods {
 		modsElsOffsets = append(modsElsOffsets, builder.CreateString(string(m)))
 	}
@@ -108,8 +108,8 @@ func ConversationEqual(a, b *Conversation) bool {
 	if slices.Equal(a.Id(), b.Id()) &&
 		slices.Equal(a.Name(), b.Name()) &&
 		slices.Equal(a.Desc(), b.Desc()) &&
-		a.Created() != b.Created() &&
-		a.Updated() != b.Updated() &&
+		a.Created() == b.Created() &&
+		a.Updated() == b.Updated() &&
 		a.ModsLength() == b.ModsLength() {
 		// Make sure all the mods are equal. Order is not important.
 		amods := make(map[string]bool, a.ModsLength())

@@ -23,7 +23,7 @@ func TestConversationService(t *testing.T) {
 	//
 	t.Parallel()
 	tempdir := t.TempDir()
-	dbpath := path.Join(tempdir, "member-service-test.db")
+	dbpath := path.Join(tempdir, "kolob.db")
 
 	db, err := sqlite.Open(dbpath)
 	if err != nil {
@@ -42,7 +42,7 @@ func TestConversationService(t *testing.T) {
 	// Add a member to use later as a mediator
 	mstore := doTestMemberCreateStore(t, db)
 	ms := services.NewMemberService(mstore)
-	m1 := doTestMemberAdd(t, ctx, ms, key)
+	m1 := doTestMemberAdd(t, ctx, ms, key, "user1")
 
 	// Create the conversation store and service
 	cstore := doTestConversationCreateStore(t, db)
@@ -61,8 +61,8 @@ func TestConversationService(t *testing.T) {
 	doTestConversationRemove(t, ctx, cs, key, b)
 
 	// Add mods to conversation
-	m2 := doTestMemberAdd(t, ctx, ms, key)
-	m3 := doTestMemberAdd(t, ctx, ms, key)
+	m2 := doTestMemberAdd(t, ctx, ms, key, "user2")
+	m3 := doTestMemberAdd(t, ctx, ms, key, "user3")
 	doTestConversationModsAdd(t, ctx, cs, key, c, m2, m3)
 
 	// Remove mods from conversation
@@ -149,7 +149,7 @@ func doTestConversationUpdate(
 	builder.Finish(reqOffset)
 
 	reqUpdate := services.GetRootAsConversationUpdateRequest(builder.FinishedBytes(), 0)
-	err := cs.Update(ctx, reqUpdate, key)
+	_, err := cs.Update(ctx, reqUpdate, key)
 	if err != nil {
 		t.Fatalf("failed to update conversation: %v", err)
 	}

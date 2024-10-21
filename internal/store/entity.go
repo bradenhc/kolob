@@ -222,3 +222,57 @@ func (e *ConversationEntity) Update(
 
 	return next, nil
 }
+
+type MessageEntity struct {
+	Id            model.Uuid
+	Author        model.Uuid
+	Conversation  model.Uuid
+	CreatedAt     int64
+	UpdatedAt     int64
+	EncryptedData []byte
+}
+
+func NewMessageEntity(m *model.Message, k crypto.Key) (MessageEntity, error) {
+	edata, err := crypto.Encrypt(k, m.Table().Bytes)
+	if err != nil {
+		var e MessageEntity
+		return e, fmt.Errorf("failed to encrypt message data: %v", err)
+	}
+
+	return MessageEntity{
+		Id:            model.Uuid(m.Id()),
+		Author:        model.Uuid(m.Author()),
+		Conversation:  model.Uuid(m.Conversation()),
+		CreatedAt:     m.Created(),
+		UpdatedAt:     m.Updated(),
+		EncryptedData: edata,
+	}, nil
+}
+
+func (e *MessageEntity) Decrypt(k crypto.Key) (*model.Message, error) {
+	data, err := crypto.Decrypt(k, e.EncryptedData)
+	if err != nil {
+		return nil, err
+	}
+
+	return model.GetRootAsMessage(data, 0), nil
+}
+
+func (e *MessageEntity) Update(k crypto.Key, content []byte) (*model.Message, error) {
+	prev, err := e.Decrypt(k)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt: %v", err)
+	}
+
+	next := model.CloneMessageWithUpdates(prev, content)
+
+	edata, err := crypto.Encrypt(k, next.Table().Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt: %v", err)
+	}
+
+	e.UpdatedAt = next.Updated()
+	e.EncryptedData = edata
+
+	return next, nil
+}

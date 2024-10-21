@@ -32,22 +32,14 @@ func (s *MessageService) Add(
 		return nil, fmt.Errorf("failed to create message object: %v", err)
 	}
 
-	edata, err := crypto.Encrypt(key, m.Table().Bytes)
+	entity, err := store.NewMessageEntity(m, key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt message info: %v", err)
+		return nil, fmt.Errorf("failed to create message entity: %v", err)
 	}
 
-	// Store the message in the database
-	meta := store.MessageMetadata{
-		Id:           model.Uuid(m.Id()),
-		Conversation: model.Uuid(m.Conversation()),
-		Author:       model.Uuid(m.Author()),
-		CreatedAt:    m.Created(),
-		UpdatedAt:    m.Updated(),
-	}
-	err = s.store.AddMessageData(ctx, meta, edata)
+	err = s.store.AddMessageEntity(ctx, entity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to store message: %v", err)
+		return nil, fmt.Errorf("failed to store message entity: %v", err)
 	}
 
 	return m, nil
@@ -56,51 +48,42 @@ func (s *MessageService) Add(
 func (s *MessageService) Get(
 	ctx context.Context, req *MessageGetRequest, key crypto.Key,
 ) (*model.Message, error) {
-	_, edata, err := s.store.GetMessageData(ctx, model.Uuid(req.Id()))
+	entity, err := s.store.GetMessageEntity(ctx, model.Uuid(req.Id()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get message from store: %v", err)
+		return nil, fmt.Errorf("failed to get message entity from store: %v", err)
 	}
 
-	data, err := crypto.Decrypt(key, edata)
+	m, err := entity.Decrypt(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt member data: %v", err)
+		return nil, fmt.Errorf("failed to decrypt message entity: %v", err)
 	}
 
-	return model.GetRootAsMessage(data, 0), nil
+	return m, nil
 }
 
 func (s *MessageService) Update(
 	ctx context.Context, req *MessageUpdateRequest, key crypto.Key,
-) error {
-	meta, edata, err := s.store.GetMessageData(ctx, model.Uuid(req.Id()))
+) (*model.Message, error) {
+	entity, err := s.store.GetMessageEntity(ctx, model.Uuid(req.Id()))
 	if err != nil {
-		return fmt.Errorf("failed to get message from store: %v", err)
+		return nil, fmt.Errorf("failed to get message from store: %v", err)
 	}
 
-	data, err := crypto.Decrypt(key, edata)
+	next, err := entity.Update(key, req.Content())
 	if err != nil {
-		return fmt.Errorf("failed to decrypt member data: %v", err)
-	}
-	prev := model.GetRootAsMessage(data, 0)
-
-	next := model.CloneMessageWithUpdates(prev, string(req.Content()))
-	meta.UpdatedAt = next.Updated()
-
-	edata, err = crypto.Encrypt(key, next.Table().Bytes)
-	if err != nil {
-		return fmt.Errorf("failed to encrypt updated message: %v", err)
+		return nil, fmt.Errorf("failed to update message entity: %v", err)
 	}
 
-	err = s.store.UpdateMessageData(ctx, meta, edata)
+	err = s.store.UpdateMessageEntity(ctx, entity)
 	if err != nil {
-		return fmt.Errorf("failed to store updated message: %v", err)
+		return nil, fmt.Errorf("failed to store updated message: %v", err)
 	}
 
-	return nil
+	return next, nil
 }
 
 func (s *MessageService) Remove(ctx context.Context, req *MessageRemoveRequest) error {
-	err := s.store.RemoveMessageData(ctx, model.Uuid(req.Id()))
+	err := s.store.RemoveMessageEntity(ctx, model.Uuid(req.Id()))
 	if err != nil {
 		return fmt.Errorf("failed to remove message from store: %v", err)
 	}
@@ -124,19 +107,19 @@ func (s *MessageService) List(
 		*query.CreatedBefore = req.CreatedBefore()
 	}
 
-	edatas, err := s.store.ListMessageData(ctx, model.Uuid(req.Conversation()), query)
+	entities, err := s.store.ListMessageEntities(ctx, model.Uuid(req.Conversation()), query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get message list form store: %v", err)
+		return nil, fmt.Errorf("failed to get message list from store: %v", err)
 	}
 
-	mlist := make([]*model.Message, len(edatas))
-	for _, edata := range edatas {
-		data, err := crypto.Decrypt(key, edata)
+	mlist := make([]*model.Message, 0, len(entities))
+	for _, e := range entities {
+		m, err := e.Decrypt(key)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt message in list: %v", err)
 		}
 
-		mlist = append(mlist, model.GetRootAsMessage(data, 0))
+		mlist = append(mlist, m)
 	}
 
 	if req.Pattern() == nil {
@@ -149,7 +132,7 @@ func (s *MessageService) List(
 		return nil, fmt.Errorf("invalid content pattern: %v", err)
 	}
 
-	flist := make([]*model.Message, 0)
+	flist := make([]*model.Message, 0, len(mlist))
 	for _, v := range mlist {
 		if r.Match(v.Content()) {
 			flist = append(flist, v)

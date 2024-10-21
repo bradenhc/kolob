@@ -42,13 +42,11 @@ func NewMessageStore(db *sql.DB) (MessageStore, error) {
 	return MessageStore{db}, nil
 }
 
-func (s MessageStore) AddMessageData(
-	ctx context.Context, m store.MessageMetadata, d []byte,
-) error {
+func (s MessageStore) AddMessageEntity(ctx context.Context, e store.MessageEntity) error {
 	_, err := s.db.ExecContext(
 		ctx,
 		"INSERT INTO message VALUES (?, ?, ?, ?, ?, ?)",
-		m.Id, m.Conversation, m.Author, m.CreatedAt, m.UpdatedAt, d,
+		e.Id, e.Conversation, e.Author, e.CreatedAt, e.UpdatedAt, e.EncryptedData,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to store new message in database: %v", err)
@@ -57,38 +55,34 @@ func (s MessageStore) AddMessageData(
 	return nil
 }
 
-func (s MessageStore) GetMessageData(
+func (s MessageStore) GetMessageEntity(
 	ctx context.Context, id model.Uuid,
-) (store.MessageMetadata, []byte, error) {
-	var m store.MessageMetadata
-	var data []byte
-	query := `
-		SELECT id, author, conversation, content, created, updated, data
-		FROM message
-		WHERE id = ?
-	`
+) (store.MessageEntity, error) {
+	var e store.MessageEntity
+	query := "SELECT * FROM message WHERE id = ?"
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&m.Id, &m.Author, &m.Conversation, &m.CreatedAt, &m.UpdatedAt, &data,
+		&e.Id, &e.Author, &e.Conversation, &e.CreatedAt, &e.UpdatedAt, &e.EncryptedData,
 	)
 	if err != nil {
-		return m, data, fmt.Errorf("failed to get message from database: %v", err)
+		var e store.MessageEntity
+		return e, fmt.Errorf("failed to get message from database: %v", err)
 	}
 
-	return m, data, nil
+	return e, nil
 }
 
-func (s MessageStore) UpdateMessageData(
-	ctx context.Context, m store.MessageMetadata, d []byte,
+func (s MessageStore) UpdateMessageEntity(
+	ctx context.Context, e store.MessageEntity,
 ) error {
 	query := "UPDATE message SET updated = ?, data = ? WHERE id = ?"
-	_, err := s.db.ExecContext(ctx, query, m.UpdatedAt, d, m.Id)
+	_, err := s.db.ExecContext(ctx, query, e.UpdatedAt, e.EncryptedData, e.Id)
 	if err != nil {
 		return fmt.Errorf("failed to update message in database: %v", err)
 	}
 	return nil
 }
 
-func (s MessageStore) RemoveMessageData(ctx context.Context, id model.Uuid) error {
+func (s MessageStore) RemoveMessageEntity(ctx context.Context, id model.Uuid) error {
 	query := "DELETE FROM message WHERE id = ?"
 	_, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
@@ -97,12 +91,12 @@ func (s MessageStore) RemoveMessageData(ctx context.Context, id model.Uuid) erro
 	return nil
 }
 
-func (s MessageStore) ListMessageData(
+func (s MessageStore) ListMessageEntities(
 	ctx context.Context, cid model.Uuid, q store.ListMessageDataQuery,
-) ([][]byte, error) {
-	where := make([]string, 1)
-	params := make([]any, 1)
-	where = append(where, "converation = ?")
+) ([]store.MessageEntity, error) {
+	where := make([]string, 0)
+	params := make([]any, 0)
+	where = append(where, "conversation = ?")
 	params = append(params, cid)
 	if q.Author != nil {
 		where = append(where, "author = ?")
@@ -116,21 +110,24 @@ func (s MessageStore) ListMessageData(
 		where = append(where, "created <= ?")
 		params = append(params, *q.CreatedBefore)
 	}
-	query := fmt.Sprintf("SELECT data from message WHERE %s", strings.Join(where, " AND "))
+	query := fmt.Sprintf("SELECT * from [message] WHERE %s", strings.Join(where, " AND "))
 	rows, err := s.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch messages from database: %v", err)
 	}
 
-	datalist := make([][]byte, 0)
+	entities := make([]store.MessageEntity, 0)
 	for rows.Next() {
-		var data []byte
-		if err := rows.Scan(&data); err != nil {
+		var e store.MessageEntity
+		err := rows.Scan(
+			&e.Id, &e.Author, &e.Conversation, &e.CreatedAt, &e.UpdatedAt, &e.EncryptedData,
+		)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan message row: %v", err)
 		}
 
-		datalist = append(datalist, data)
+		entities = append(entities, e)
 	}
 
-	return datalist, nil
+	return entities, nil
 }

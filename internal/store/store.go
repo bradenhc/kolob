@@ -35,19 +35,11 @@ type ConversationStore interface {
 }
 
 type MessageStore interface {
-	AddMessageData(ctx context.Context, m MessageMetadata, d []byte) error
-	GetMessageData(ctx context.Context, id model.Uuid) (MessageMetadata, []byte, error)
-	UpdateMessageData(ctx context.Context, m MessageMetadata, d []byte) error
-	RemoveMessageData(ctx context.Context, id model.Uuid) error
-	ListMessageData(ctx context.Context, cid model.Uuid, q ListMessageDataQuery) ([][]byte, error)
-}
-
-type MessageMetadata struct {
-	Id           model.Uuid
-	Author       model.Uuid
-	Conversation model.Uuid
-	CreatedAt    int64
-	UpdatedAt    int64
+	AddMessageEntity(ctx context.Context, m MessageEntity) error
+	GetMessageEntity(ctx context.Context, id model.Uuid) (MessageEntity, error)
+	UpdateMessageEntity(ctx context.Context, m MessageEntity) error
+	RemoveMessageEntity(ctx context.Context, id model.Uuid) error
+	ListMessageEntities(ctx context.Context, cid model.Uuid, q ListMessageDataQuery) ([]MessageEntity, error)
 }
 
 type ListMessageDataQuery struct {

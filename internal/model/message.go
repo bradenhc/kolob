@@ -40,14 +40,14 @@ func NewMessage(author, convo Uuid, content string) (*Message, error) {
 
 }
 
-func CloneMessageWithUpdates(prev *Message, content string) *Message {
+func CloneMessageWithUpdates(prev *Message, content []byte) *Message {
 	now := time.Now().UnixMilli()
 
 	builder := flatbuffers.NewBuilder(1024)
 	idOffset := builder.CreateByteString(prev.Id())
 	authorOffset := builder.CreateByteString(prev.Author())
 	convoOffset := builder.CreateByteString(prev.Conversation())
-	contentOffset := builder.CreateString(content)
+	contentOffset := builder.CreateByteString(content)
 
 	MessageStart(builder)
 	MessageAddId(builder, idOffset)

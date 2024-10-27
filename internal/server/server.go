@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bradenhc/kolob/internal/server/session"
 	"github.com/bradenhc/kolob/internal/services"
+	"github.com/bradenhc/kolob/internal/session"
 	"github.com/bradenhc/kolob/internal/store/sqlite"
 )
 

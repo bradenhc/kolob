@@ -19,7 +19,7 @@ var (
 )
 
 type session struct {
-	pkey crypto.Key
+	key  crypto.Key
 	last time.Time
 }
 
@@ -41,7 +41,7 @@ func (m *Manager) Add(k crypto.Key) (model.Uuid, error) {
 	}
 	m.sessionsmx.Lock()
 	defer m.sessionsmx.Unlock()
-	m.sessions[id] = session{pkey: k, last: time.Now()}
+	m.sessions[id] = session{key: k, last: time.Now()}
 	return id, nil
 }
 
@@ -61,7 +61,7 @@ func (m *Manager) Get(id model.Uuid) (crypto.Key, error) {
 
 	s.last = time.Now()
 
-	return s.pkey, nil
+	return s.key, nil
 }
 
 func (m *Manager) Remove(id model.Uuid) {

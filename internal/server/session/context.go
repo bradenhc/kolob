@@ -12,18 +12,18 @@ import (
 
 type key int
 
-var pkeyKey key
+var encryptionKeyContextKey key
 
 var (
 	ErrInvalidSessionContextValue = errors.New("invalid session context value")
 )
 
-func NewContext(ctx context.Context, pkey crypto.Key) context.Context {
-	return context.WithValue(ctx, pkeyKey, pkey)
+func NewContext(ctx context.Context, key crypto.Key) context.Context {
+	return context.WithValue(ctx, encryptionKeyContextKey, key)
 }
 
 func FromContext(ctx context.Context) (crypto.Key, error) {
-	k, ok := ctx.Value(pkeyKey).(crypto.Key)
+	k, ok := ctx.Value(encryptionKeyContextKey).(crypto.Key)
 	if !ok {
 		return k, ErrInvalidSessionContextValue
 	}

@@ -26,7 +26,7 @@ func (s *Manager) Middleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		pkey, err := s.Get(model.Uuid(c.Value))
+		key, err := s.Get(model.Uuid(c.Value))
 		if err != nil {
 			switch err {
 			case ErrSessionNotFound:
@@ -37,6 +37,6 @@ func (s *Manager) Middleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		next(w, r.WithContext(NewContext(r.Context(), pkey)))
+		next(w, r.WithContext(NewContext(r.Context(), key)))
 	}
 }

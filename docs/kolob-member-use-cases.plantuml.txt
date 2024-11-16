@@ -1,0 +1,65 @@
+@startuml
+
+skinparam actorStyle awesome
+
+actor "User" as U
+actor "Conversation Moderator" as C
+actor "Group Moderator" as G
+
+package "Standard" {
+    usecase "Edit Own Profile Information"      as UC.ST.01
+    usecase "Change Own Password"               as UC.ST.02
+    usecase "Post Own Message"                  as UC.ST.03
+    usecase "Read Own Message"                  as UC.ST.04
+    usecase "Edit Own Message"                  as UC.ST.05
+    usecase "Delete Own Message"                as UC.ST.06
+    usecase "Read Other Messages"               as UC.ST.07
+    usecase "React to Messages"                 as UC.ST.08
+    usecase "Create Message Threads"            as UC.ST.09
+}
+
+package "Conversation Moderation" {
+    usecase "Edit Conversation Information"             as UC.CM.01
+    usecase "Modify Conversation Membership"            as UC.CM.02
+    usecase "Modify Conversation Message Rules"         as UC.CM.03
+    usecase "Delete Other Messages in Conversation"     as UC.CM.04
+    usecase "Modify Conversation Moderator List"        as UC.CM.05
+}
+
+package "Group Moderation" {
+    usecase "Create Conversation"           as UC.GM.01
+    usecase "Delete Conversation"           as UC.GM.02
+    usecase "Add Member to Group"           as UC.GM.03
+    usecase "Remove Member from Group"      as UC.GM.04
+    usecase "Edit Group Information"        as UC.GM.05
+    usecase "Change Group Password"         as UC.GM.06
+    usecase "Reset Member Passwords"        as UC.GM.07
+}
+
+U --> UC.ST.01
+U --> UC.ST.02
+U --> UC.ST.03
+U --> UC.ST.04
+U --> UC.ST.05
+U --> UC.ST.06
+U --> UC.ST.07
+U --> UC.ST.08
+U --> UC.ST.09
+
+U <|-- C
+C --> UC.CM.01
+C --> UC.CM.02
+C --> UC.CM.03
+C --> UC.CM.04
+C --> UC.CM.05
+
+C <|-- G
+G --> UC.GM.01
+G --> UC.GM.02
+G --> UC.GM.03
+G --> UC.GM.04
+G --> UC.GM.05
+G --> UC.GM.06
+G --> UC.GM.07
+
+@enduml

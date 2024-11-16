@@ -1,0 +1,55 @@
+@startchen
+left to right direction
+
+entity Group {
+}
+entity Member {
+}
+entity Conversation {
+}
+entity Message {
+}
+entity Thread {
+}
+
+relationship Houses {
+}
+Group -1- Houses
+Houses -(1,N)- Member
+
+relationship Managed {
+}
+Group -1- Managed
+Managed -(1,N)- Member
+
+relationship Hosts {
+}
+Group -1- Hosts
+Hosts -(1,N)- Conversation
+
+relationship Moderates {
+}
+Member -(1,N)- Moderates
+Moderates -(1,N)- Conversation
+
+relationship Writes {
+}
+Member -1- Writes
+Writes -(1,N)- Message
+
+relationship Contains {
+}
+Conversation -1- Contains
+Contains -(0,N)- Message
+
+relationship Participates {
+}
+Member -(0,N)- Participates
+Participates -(0,N)- Conversation
+
+relationship Spawns {
+}
+Message -1- Spawns
+Spawns -(0,1)- Thread
+
+@endchen

@@ -1,4 +1,4 @@
-# Kolob - Simple & Secure Accountless Collaboration
+# Kolob - Simple, Secure Collaboration
 
 Kolob is a simple collaboration tool designed to target an audience that may not
 have email addresses or mobile phones but does have access to the internet. Once
@@ -7,45 +7,70 @@ to sign in to Kolob and start posting messages to the group.
 
 ## Motivation
 
-TODO
+The youth organization of The Church of Jesus Christ of Latter-day Saints gives
+young men and women under the age of 18 opportunities to develop themselves as
+leaders. While there are adult leaders that assist the youth, one of the goals
+of this organization is for it to be "youth led". This means that the youth are
+supposed to be in charge of as many aspects of the organization as possible.
 
-## Capabilities
+In order for youth to truly lead efforts such as activity planning, service
+project organization, and peer ministering, they need a reliable way of
+communicating with each other. Traditionally, this communication has taken place
+using text messages and email; however, not all youth have cell phones and email
+address. This means that for some youth communication has to be relayed through
+their parents. While parents should always be involved in communication between
+their youth, acting as proxy does not always allow the youth to be truly
+self-organized.
 
-TODO
+Kolob attempts to fill this gap by providing a means for youth to collaborate
+with each other and their adult leaders even if they do not have a cell phone or
+an email account. As long as they have access to the internet, they can use
+credentials given them by their youth leaders to collaborate online with their
+peers.
+
+## Features
+
+The primary objectives or Kolob are:
+
+- **Accountless**: no phone number or email address required
+
+- **Simple**: just text-based communication with no extra bells and whistles
+
+- **Secure**: every piece of information is encrypted with the highest standards
+  in transit and at rest
+
+## Non-Features
+
+The following elements are intentionally not a part of Kolob:
+
+- **Direct Messaging**: members cannot message each other individually. They can
+  only communicate in conversations visible to more than one member.
 
 ## Command Interface
 
-The `kolob` command is used to launch a single Kolob server.
+The `kolob` executable is used to launch a single Kolob server.
 
-The `kolobctl` command is used to manage several kolob servers. It provides a
+The `kolobctl` executable is used to manage several kolob servers. It provides a
 clean user interfaces that lets users create new groups and monitors the Kolob
 server associated with a group. `kolobctl` uses containerization technologies to
-do most of the heavy lifting, so you should make sure Docker is installed if you
-are going to be using it.
+do most of the heavy lifting, so you should make sure Docker or Podman is
+installed if you are going to be using it.
 
 ## Data Model
 
 Kolob focuses on a minimal feature set in order to provide the highest quality
-experience for a special niche of users. The remainder of this section breaks
-down this data model and explains the motivation behind the different elements.
+experience for a special niche of users. The diagram below provides an overview
+of the various data entities in Kolob and how they relate to each other. The
+remainder of this section breaks down this data model and explains the
+motivation behind the different elements.
 
-```mermaid
----
-config:
-    er:
-        layoutDirection: LR
----
-erDiagram
-    CONVERSATION }o--||  GROUP : belongs
-    MEMBER }o--|| GROUP : belongs
-    CONVERSATION ||--o{ MESSAGE : contains
-    MEMBER }|--|{ CONVERSATION : mediates
-    MEMBER }o--o{ CONVERSATION : participates
-    MEMBER ||--o{ MESSAGE : writes
-    MESSAGE ||--o| THREAD : owns
-    MEMBER }|--|| GROUP : administers
-    THREAD ||--|{ MESSAGE : contains
-```
+<div style="display: flex; align-items: center;">
+    <img src="./docs/img/kolob-data-model.plantuml.png"
+         alt="Kolob Data Model"
+         title="Kolob Data Model"
+         style="max-width: 100%;"
+    />
+</div>
 
 ### Group
 
@@ -73,14 +98,14 @@ A **Member** belongs to one and only one group. Member's are identified within a
 group by their username. A username is unique within a group, but Kolob does not
 require that usernames be unique across groups.
 
-#### Group Administrator
+#### Group Moderator
 
-The member that creates the group is called the **Group Administrator**. While
-other group members do not need to provide a separate email or phone number, the
-Group Creator _must_ provide contact information and respond to a confirmation
+The member that creates the group is called the **Group Moderator**. While other
+group members do not need to provide a separate email or phone number, the Group
+Moderator _must_ provide contact information and respond to a confirmation
 before the group is created.
 
-Only the Group Administrator can create profiles for Members to join a group.
+Only the Group Moderator can create profiles for Members to join a group.
 
 This security feature protects the Kolob server from being overwhelemed with
 fake groups and helps provide group members with a sense of security because
@@ -108,13 +133,28 @@ default backend is driven by SQLite.
 Data is always written to disk before it is applied to the in-memory store. Data
 on disk is always encrypted.
 
+## Access Controls
+
+The following diagram lists the use cases available to users of different roles:
+
+<div style="display: flex; align-items: center;">
+    <img src="./docs/img/kolob-member-use-cases.plantuml.png"
+         alt="Kolob Member Use Cases"
+         title="Kolob Member Use Cases"
+         style="max-width: 100%"
+    />
+</div>
+
+Kolob uses a simple role-based access control (RBAC) model to authorize actions
+that follows the organization of use cases in the above diagram.
+
 ## Security
 
 All member, conversation, and message information within a group is encrypted
 using AES with a 256-bit key generated by a cryptographically strong random
 number generator when the group is created. This key is itself encrypted using a
 key derived by the PBKDF2 algorithm from a group password set by the Group
-Administrator. This PBKDF2 algorithms uses the password, a 32 byte salt, and
+Moderator. This PBKDF2 algorithms uses the password, a 32 byte salt, and
 1,000,000 iterations to generate the key used to encrypt group data.
 
 The user provided password must be between 16 and 72 characters and contain at
@@ -140,35 +180,49 @@ the database is compromised.
 
 ## Interfaces
 
+### Events Over Websocket
+
+Submitting an HTTP GET request to the `api/v1/stream` resource will establish a
+secure websocket connection with the Kolob server. This connection can be used
+to send events to the server.
+
+Typically these events contain request messages for actions to be performed by
+the server. The server can also send events to the client; however, events are
+not necessarily a direct response to a client-sent eventm. Instead, the Kolob
+client handles events agnostic of whether that event was initiated by an event
+it sent previously.
+
+TODO: list events
+
 ### REST Over HTTP
 
 The following table provides a summary of the available HTTP resources and the
 methods on those resources you can use to interact with the Kolob server.
 
-| Path                        | Method | Action                              |
-| :-------------------------- | :----- | :---------------------------------- |
-| `/api/group`                | POST   | Initialize the group                |
-| `/api/group`                | GET    | Fetch group information             |
-| `/api/group`                | PUT    | Update group information            |
-| `/api/group/auth`           | POST   | Sign in with group credentials      |
-| `/api/group/auth`           | PUT    | Update group credentials            |
-| `/api/members`              | POST   | Add a member to the group           |
-| `/api/members`              | GET    | List all group members              |
-| `/api/members/auth`         | POST   | Sign in with member credentials     |
-| `/api/members/{id}`         | GET    | Fetch member information            |
-| `/api/members/{id}`         | PUT    | Update member information           |
-| `/api/members/{id}`         | DELETE | Remove a member from the group      |
-| `/api/members/{id}/auth`    | PUT    | Update member credentials           |
-| `/api/convos`               | POST   | Create a new conversation           |
-| `/api/convos/{id}`          | GET    | Fetch conversation information      |
-| `/api/convos/{id}`          | PUT    | Update conversation information     |
-| `/api/convos/{id}/messages` | GET    | List all messages in a conversation |
-| `/api/convos/{id}/members`  | GET    | List all messages in a conversation |
-| `/api/messages/{id}`        | PUT    | Update a message                    |
-| `/api/messages/{id}`        | DELETE | Delete a message                    |
-| `/api/messages/{id}/thread` | POST   | Add to a message thread             |
-| `/api/threads/{id}`         | PUT    | Update a thread message             |
-| `/api/threads/{id}`         | DELETE | Remove to a message thread          |
+| Path                                  | Method | Action                                   |
+| :------------------------------------ | :----- | :--------------------------------------- |
+| `/api/v1/auth`                        | POST   | Authenticate a member of a group         |
+| `/api/v1/group`                       | POST   | Initialize the group                     |
+| `/api/v1/group`                       | GET    | Fetch group information                  |
+| `/api/v1/group`                       | PUT    | Update group information                 |
+| `/api/v1/group/auth`                  | PUT    | Update group credentials                 |
+| `/api/v1/members`                     | POST   | Add a member to the group                |
+| `/api/v1/members`                     | GET    | List all group members                   |
+| `/api/v1/members/{id}`                | GET    | Fetch member information                 |
+| `/api/v1/members/{id}`                | PUT    | Update member information                |
+| `/api/v1/members/{id}`                | DELETE | Remove a member from the group           |
+| `/api/v1/members/{id}/auth`           | PUT    | Update member credentials                |
+| `/api/v1/conversations`               | POST   | Create a new conversation                |
+| `/api/v1/conversations/{id}`          | GET    | Fetch conversation information           |
+| `/api/v1/conversations/{id}`          | PUT    | Update conversation information          |
+| `/api/v1/conversations/{id}/messages` | GET    | List all messages in a conversation      |
+| `/api/v1/conversations/{id}/members`  | GET    | List all messages in a conversation      |
+| `/api/v1/messages`                    | POST   | Add a mesage to a conversation or thread |
+| `/api/v1/messages/{id}`               | GET    | Fetch a single messagee                  |
+| `/api/v1/messages/{id}`               | PUT    | Update a message                         |
+| `/api/v1/messages/{id}`               | DELETE | Delete a message                         |
+| `/api/v1/threads`                     | POST   | Create a thread for a message            |
+| `/api/v1/threads/{id}`                | GET    | List messages in a thread                |
 
 ## Design
 

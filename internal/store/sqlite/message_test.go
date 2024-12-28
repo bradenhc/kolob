@@ -123,6 +123,10 @@ func doTestMessageStoreSqliteGet(
 func doTestMessageStoreSqliteUpdate(
 	t *testing.T, s store.MessageStore, k crypto.Key, e store.MessageEntity,
 ) {
+	// Sleep for a bit so that our update time is different than the create time. Without this, the
+	// test may fail because they run too fast (sub-millisecond difference).
+	time.Sleep(1 * time.Second)
+
 	content := []byte("Hello, test!")
 	next, err := e.Update(k, content)
 	if err != nil {

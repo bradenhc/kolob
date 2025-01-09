@@ -1,5 +1,8 @@
 # Built executables
 kolob
 
+# Embedded files
+internal/appfs/webui
+
 # Data
 *.db

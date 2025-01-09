@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bradenhc/kolob/internal/appfs"
 	"github.com/bradenhc/kolob/internal/crypto"
 	"github.com/bradenhc/kolob/internal/services"
 	"github.com/bradenhc/kolob/internal/session"
@@ -62,6 +64,13 @@ func NewServer(c Config) (*Server, error) {
 
 	slog.Info("Registering routes")
 	mux := http.NewServeMux()
+
+	// Setup the static filer server for the web UI
+	fsys := fs.FS(appfs.AppFS)
+	webui, _ := fs.Sub(fsys, "webui")
+	mux.Handle("GET /", http.FileServer(http.FS(webui)))
+
+	// Setup the routes for the API
 	mux.HandleFunc("POST /api/v1/group", groupHandler.InitGroup)
 	mux.HandleFunc("GET /api/v1/group", middlware.Finish(groupHandler.GetGroupInfo))
 
